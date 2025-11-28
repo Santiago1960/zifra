@@ -41,7 +41,7 @@ class _InvoiceDropZoneState extends State<InvoiceDropZone> {
           final invoice = InvoiceValidator.parse(content);
           if (invoice != null) {
             // Check against existing files
-            final isDuplicate = _files.any((f) => f.invoice?.accessKey == invoice.accessKey);
+            final isDuplicate = _files.any((f) => f.invoice?.claveAcceso == invoice.claveAcceso);
             if (isDuplicate) {
                setState(() {
                 _files.add(FileValidationResult(

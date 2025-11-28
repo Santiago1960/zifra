@@ -88,7 +88,6 @@ class InvoiceValidator {
       final estab = infoTributaria.findElements('estab').first.innerText;
       final ptoEmi = infoTributaria.findElements('ptoEmi').first.innerText;
       final sec = infoTributaria.findElements('secuencial').first.innerText;
-      final sequential = '$estab-$ptoEmi-$sec';
       
       final issuerName = infoTributaria.findElements('nombreComercial').firstOrNull?.innerText ?? 
                          infoTributaria.findElements('razonSocial').first.innerText;
@@ -96,15 +95,11 @@ class InvoiceValidator {
       final total = double.parse(infoFactura.findElements('importeTotal').first.innerText);
 
       // New fields extraction
-      final environment = infoTributaria.findElements('ambiente').firstOrNull?.innerText ?? '';
-      final emissionType = infoTributaria.findElements('tipoEmision').firstOrNull?.innerText ?? '';
       final accountingObligation = infoFactura.findElements('obligadoContabilidad').firstOrNull?.innerText ?? '';
       final matrixAddress = infoTributaria.findElements('dirMatriz').firstOrNull?.innerText ?? '';
       final establishmentAddress = infoFactura.findElements('dirEstablecimiento').firstOrNull?.innerText;
       final customerName = infoFactura.findElements('razonSocialComprador').firstOrNull?.innerText ?? '';
       final customerRuc = infoFactura.findElements('identificacionComprador').firstOrNull?.innerText ?? '';
-      final customerAddress = infoFactura.findElements('direccionComprador').firstOrNull?.innerText ?? '';
-      final remissionGuide = infoFactura.findElements('guiaRemision').firstOrNull?.innerText;
       
       final subtotal = double.tryParse(infoFactura.findElements('totalSinImpuestos').firstOrNull?.innerText ?? '0') ?? 0.0;
       final totalDiscount = double.tryParse(infoFactura.findElements('totalDescuento').firstOrNull?.innerText ?? '0') ?? 0.0;
@@ -127,7 +122,7 @@ class InvoiceValidator {
       if (detallesNode != null) {
         for (final detalle in detallesNode.findElements('detalle')) {
           final mainCode = detalle.findElements('codigoPrincipal').firstOrNull?.innerText ?? '';
-          final auxCode = detalle.findElements('codigoAuxiliar').firstOrNull?.innerText;
+          // auxCode ignored as not in InvoiceDetail
           final description = detalle.findElements('descripcion').first.innerText;
           final quantity = double.parse(detalle.findElements('cantidad').first.innerText);
           final unitPrice = double.parse(detalle.findElements('precioUnitario').first.innerText);
@@ -135,13 +130,12 @@ class InvoiceValidator {
           final totalPrice = double.parse(detalle.findElements('precioTotalSinImpuesto').first.innerText);
 
           details.add(InvoiceDetail(
-            mainCode: mainCode,
-            auxCode: auxCode,
-            description: description,
-            quantity: quantity,
-            unitPrice: unitPrice,
-            discount: discount,
-            totalPrice: totalPrice,
+            codigoPrincipal: mainCode,
+            descripcion: description,
+            cantidad: quantity,
+            precioUnitario: unitPrice,
+            descuento: discount,
+            precioTotalSinImpuesto: totalPrice,
           ));
         }
       }
@@ -160,7 +154,7 @@ class InvoiceValidator {
       }
 
       // Payments
-      final payments = <Payment>[];
+      final payments = <Pago>[];
       final pagosNode = infoFactura.findElements('pagos').firstOrNull;
       if (pagosNode != null) {
         for (final pago in pagosNode.findElements('pago')) {
@@ -169,39 +163,46 @@ class InvoiceValidator {
           final timeUnit = pago.findElements('unidadTiempo').firstOrNull?.innerText ?? '';
           final term = double.tryParse(pago.findElements('plazo').firstOrNull?.innerText ?? '0') ?? 0.0;
           
-          payments.add(Payment(
-            method: method,
+          payments.add(Pago(
+            formaPago: method,
             total: total,
-            timeUnit: timeUnit,
-            term: term,
+            unidadTiempo: timeUnit,
+            plazo: term,
           ));
         }
       }
 
       return Invoice(
-        accessKey: accessKey,
-        date: date,
-        sequential: sequential,
-        issuerName: issuerName,
-        issuerRuc: issuerRuc,
-        total: total,
+        razonSocial: issuerName,
+        nombreComercial: infoTributaria.findElements('nombreComercial').firstOrNull?.innerText ?? '',
+        ruc: issuerRuc,
+        claveAcceso: accessKey,
+        codDoc: infoTributaria.findElements('codDoc').first.innerText,
+        estab: estab,
+        ptoEmi: ptoEmi,
+        secuencial: sec,
+        dirMatriz: matrixAddress,
+        fechaEmision: date,
+        dirEstablecimiento: establishmentAddress ?? '',
+        contribuyenteEspecial: infoFactura.findElements('contribuyenteEspecial').firstOrNull?.innerText ?? '',
+        obligadoContabilidad: accountingObligation,
+        tipoIdentificacionComprador: infoFactura.findElements('tipoIdentificacionComprador').first.innerText,
+        razonSocialComprador: customerName,
+        identificacionComprador: customerRuc,
+        totalSinImpuestos: subtotal,
+        totalDescuento: totalDiscount,
+        baseImponibleIvaCero: 0.0, // Need to extract if possible, or default
+        baseImponibleIva: 0.0, // Need to extract if possible, or default
+        valorIVA: iva,
+        valorDevolucionIva: 0.0, // Default
+        propina: tip,
+        importeTotal: total,
+        detalle: details,
+        numeroAutorizacion: accessKey, // Usually same as access key or extracted
+        fechaAutorizacion: date, // Using emission date as fallback or extract from somewhere else if needed
         xmlContent: content,
-        details: details,
-        environment: environment,
-        emissionType: emissionType,
-        accountingObligation: accountingObligation,
-        matrixAddress: matrixAddress,
-        establishmentAddress: establishmentAddress,
-        customerName: customerName,
-        customerRuc: customerRuc,
-        customerAddress: customerAddress,
-        remissionGuide: remissionGuide,
-        subtotal: subtotal,
-        totalDiscount: totalDiscount,
-        iva: iva,
-        tip: tip,
-        additionalInfo: additionalInfo,
-        payments: payments,
+        infoAdicional: additionalInfo,
+        pagos: payments,
       );
     } catch (e) {
       return null;

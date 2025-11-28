@@ -63,7 +63,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
       final bytes = await pdfGenerator.generatePdf(invoice);
 
       final output = await getTemporaryDirectory();
-      final file = File('${output.path}/factura_${invoice.sequential}.pdf');
+      final file = File('${output.path}/factura_${invoice.secuencial}.pdf');
       await file.writeAsBytes(bytes);
 
       // Hide loading indicator
@@ -156,8 +156,8 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                               final isEven = index % 2 == 0;
 
                               // Extract only the sequential part
-                              final sequentialParts = invoice.sequential.split('-');
-                              final shortSequential = sequentialParts.isNotEmpty ? sequentialParts.last : invoice.sequential;
+                              final sequentialParts = invoice.secuencial.split('-');
+                              final shortSequential = sequentialParts.isNotEmpty ? sequentialParts.last : invoice.secuencial;
 
                               final baseColor = isEven ? Colors.lightBlue.shade50 : Colors.white;
                               final rowColor = isSelected
@@ -176,11 +176,11 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                                         onChanged: (value) => _onSelect(index, value),
                                       ),
                                     ),
-                                    Expanded(flex: 2, child: Text(invoice.date)),
+                                    Expanded(flex: 2, child: Text(invoice.fechaEmision)),
                                     Expanded(flex: 2, child: Text(shortSequential)),
-                                    Expanded(flex: 4, child: Text(invoice.issuerName)),
-                                    Expanded(flex: 2, child: Text('\$${invoice.total.toStringAsFixed(2)}')),
-                                    Expanded(flex: 3, child: Text(invoice.category.isEmpty ? 'Sin categoría' : invoice.category)),
+                                    Expanded(flex: 4, child: Text(invoice.razonSocial)),
+                                    Expanded(flex: 2, child: Text('\$${invoice.importeTotal.toStringAsFixed(2)}')),
+                                    Expanded(flex: 3, child: Text(invoice.categoria.isEmpty ? 'Sin categoría' : invoice.categoria)),
                                     SizedBox(
                                       width: 50,
                                       child: IconButton(

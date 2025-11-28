@@ -34,13 +34,7 @@ class PdfGeneratorService {
               children: [
                 pw.Expanded(
                   flex: 6,
-                  child: pw.Column(
-                    children: [
-                      _buildAdditionalInfo(invoice),
-                      pw.SizedBox(height: 10),
-                      _buildPaymentInfo(invoice),
-                    ],
-                  ),
+                  child: _buildPaymentInfo(invoice),
                 ),
                 pw.SizedBox(width: 10),
                 pw.Expanded(
@@ -49,6 +43,8 @@ class PdfGeneratorService {
                 ),
               ],
             ),
+            pw.SizedBox(height: 10),
+            _buildAdditionalInfo(invoice),
           ];
         },
       ),
@@ -98,13 +94,13 @@ class PdfGeneratorService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(invoice.issuerName, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                    pw.Text(invoice.razonSocial, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
                     pw.SizedBox(height: 4),
-                    pw.Text('Matriz: ${invoice.matrixAddress}', style: const pw.TextStyle(fontSize: 8)),
-                    if (invoice.establishmentAddress != null)
-                      pw.Text('Sucursal: ${invoice.establishmentAddress}', style: const pw.TextStyle(fontSize: 8)),
+                    pw.Text('Matriz: ${invoice.dirMatriz}', style: const pw.TextStyle(fontSize: 8)),
+                    if (invoice.dirEstablecimiento.isNotEmpty)
+                      pw.Text('Sucursal: ${invoice.dirEstablecimiento}', style: const pw.TextStyle(fontSize: 8)),
                     pw.SizedBox(height: 4),
-                    pw.Text('OBLIGADO LLEVAR CONTABILIDAD: ${invoice.accountingObligation}', style: const pw.TextStyle(fontSize: 8)),
+                    pw.Text('OBLIGADO LLEVAR CONTABILIDAD: ${invoice.obligadoContabilidad}', style: const pw.TextStyle(fontSize: 8)),
                   ],
                 ),
               ),
@@ -123,24 +119,25 @@ class PdfGeneratorService {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('RUC: ${invoice.issuerRuc}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.Text('RUC: ${invoice.ruc}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 4),
                 pw.Text('FACTURA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 4),
-                pw.Text('No.: ${invoice.sequential}'),
+                pw.Text('No.: ${invoice.secuencial}'), // Using raw secuencial as helper might be gone or different
                 pw.SizedBox(height: 4),
                 pw.Text('NÚMERO DE AUTORIZACIÓN', style: const pw.TextStyle(fontSize: 8)),
-                pw.Text(invoice.accessKey, style: const pw.TextStyle(fontSize: 8)),
+                pw.Text(invoice.numeroAutorizacion, style: const pw.TextStyle(fontSize: 8)), // Was accessKey, but usually numeroAutorizacion is same or similar. SRIinvoice has numeroAutorizacion.
                 pw.SizedBox(height: 4),
-                pw.Text('FECHA Y HORA DE AUTORIZACIÓN: ${invoice.date}', style: const pw.TextStyle(fontSize: 8)),
+                pw.Text('FECHA Y HORA DE AUTORIZACIÓN: ${invoice.fechaAutorizacion}', style: const pw.TextStyle(fontSize: 8)), // Was date, but SRIinvoice has fechaAutorizacion
                 pw.SizedBox(height: 4),
-                pw.Text('AMBIENTE: ${invoice.environment}', style: const pw.TextStyle(fontSize: 8)),
-                pw.Text('EMISIÓN: ${invoice.emissionType}', style: const pw.TextStyle(fontSize: 8)),
+                // Environment and Emission Type are not in SRIinvoice directly.
+                // pw.Text('AMBIENTE: ${invoice.environment}', style: const pw.TextStyle(fontSize: 8)),
+                // pw.Text('EMISIÓN: ${invoice.emissionType}', style: const pw.TextStyle(fontSize: 8)),
                 pw.SizedBox(height: 4),
                 pw.Text('CLAVE DE ACCESO', style: const pw.TextStyle(fontSize: 8)),
                 pw.SizedBox(height: 4),
                 pw.BarcodeWidget(
-                  data: invoice.accessKey,
+                  data: invoice.claveAcceso,
                   barcode: pw.Barcode.code128(),
                   height: 40,
                   drawText: true,
@@ -166,29 +163,31 @@ class PdfGeneratorService {
           pw.Row(
             children: [
               pw.Text('Razón Social / Nombres y Apellidos: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
-              pw.Expanded(child: pw.Text(invoice.customerName, style: const pw.TextStyle(fontSize: 9))),
+              pw.Expanded(child: pw.Text(invoice.razonSocialComprador, style: const pw.TextStyle(fontSize: 9))),
             ],
           ),
           pw.SizedBox(height: 4),
           pw.Row(
             children: [
               pw.Text('RUC / C.I.: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
-              pw.Text(invoice.customerRuc, style: const pw.TextStyle(fontSize: 9)),
+              pw.Text(invoice.identificacionComprador, style: const pw.TextStyle(fontSize: 9)),
               pw.SizedBox(width: 20),
               pw.Text('Fecha Emisión: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
-              pw.Text(invoice.date, style: const pw.TextStyle(fontSize: 9)),
+              pw.Text(invoice.fechaEmision, style: const pw.TextStyle(fontSize: 9)),
               pw.SizedBox(width: 20),
-              pw.Text('Guía Remisión: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
-              pw.Text(invoice.remissionGuide ?? '--', style: const pw.TextStyle(fontSize: 9)),
+              // Remission Guide not in SRIinvoice
+              // pw.Text('Guía Remisión: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+              // pw.Text(invoice.remissionGuide ?? '--', style: const pw.TextStyle(fontSize: 9)),
             ],
           ),
           pw.SizedBox(height: 4),
-          pw.Row(
-            children: [
-              pw.Text('Dirección: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
-              pw.Expanded(child: pw.Text(invoice.customerAddress, style: const pw.TextStyle(fontSize: 9))),
-            ],
-          ),
+          // Customer Address not in SRIinvoice
+          // pw.Row(
+          //   children: [
+          //     pw.Text('Dirección: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+          //     pw.Expanded(child: pw.Text(invoice.customerAddress, style: const pw.TextStyle(fontSize: 9))),
+          //   ],
+          // ),
         ],
       ),
     );
@@ -210,21 +209,21 @@ class PdfGeneratorService {
       },
       data: <List<String>>[
         <String>['Cod. Principal', 'Cod. Auxiliar', 'Cant.', 'Descripción', 'Precio Unitario', 'Desc.', 'Precio Total'],
-        ...invoice.details.map((item) => [
-          item.mainCode,
-          item.auxCode ?? '--',
-          item.quantity.toStringAsFixed(2),
-          item.description,
-          item.unitPrice.toStringAsFixed(2),
-          item.discount.toStringAsFixed(2),
-          item.totalPrice.toStringAsFixed(2),
+        ...invoice.detalle.map((item) => [
+          item.codigoPrincipal,
+          '--', // auxCode not in SRIinvoiceDetail
+          item.cantidad.toStringAsFixed(2),
+          item.descripcion,
+          item.precioUnitario.toStringAsFixed(2),
+          item.descuento.toStringAsFixed(2),
+          item.precioTotalSinImpuesto.toStringAsFixed(2),
         ]),
       ],
     );
   }
 
   pw.Widget _buildAdditionalInfo(Invoice invoice) {
-    if (invoice.additionalInfo.isEmpty) return pw.SizedBox();
+    if (invoice.infoAdicional.isEmpty) return pw.SizedBox();
 
     return pw.Container(
       padding: const pw.EdgeInsets.all(8),
@@ -236,7 +235,7 @@ class PdfGeneratorService {
         children: [
           pw.Text('Información Adicional', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
           pw.SizedBox(height: 4),
-          ...invoice.additionalInfo.entries.map((entry) => pw.Row(
+          ...invoice.infoAdicional.entries.map((entry) => pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.SizedBox(width: 100, child: pw.Text(entry.key, style: const pw.TextStyle(fontSize: 8))),
@@ -249,19 +248,19 @@ class PdfGeneratorService {
   }
 
   pw.Widget _buildPaymentInfo(Invoice invoice) {
-    if (invoice.payments.isEmpty) return pw.SizedBox();
+    if (invoice.pagos.isEmpty) return pw.SizedBox();
 
     return pw.TableHelper.fromTextArray(
       headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8),
       cellStyle: const pw.TextStyle(fontSize: 8),
       headerDecoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black)),
       data: <List<String>>[
-        <String>['Forma de pago', 'Total', 'Plazo', 'Tiempo'],
-        ...invoice.payments.map((p) => [
-          p.method,
+        <String>['Forma de pago', 'Total', 'Plazo', 'Unidad de tiempo'],
+        ...invoice.pagos.map((p) => [
+          _getPaymentMethodDescription(p.formaPago),
           p.total.toStringAsFixed(2),
-          p.term.toString(),
-          p.timeUnit,
+          p.plazo.toString(),
+          p.unidadTiempo,
         ]),
       ],
     );
@@ -274,16 +273,16 @@ class PdfGeneratorService {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.black),
       children: [
-        _buildTotalRow('SUBTOTAL 12%', '0.00', labelStyle, valueStyle), // Assuming 0 for now as we don't distinguish tax rates in detail yet
-        _buildTotalRow('SUBTOTAL 0%', '0.00', labelStyle, valueStyle),
+        _buildTotalRow('SUBTOTAL 12%', invoice.baseImponibleIva.toStringAsFixed(2), labelStyle, valueStyle),
+        _buildTotalRow('SUBTOTAL 0%', invoice.baseImponibleIvaCero.toStringAsFixed(2), labelStyle, valueStyle),
         _buildTotalRow('SUBTOTAL NO OBJETO IVA', '0.00', labelStyle, valueStyle),
         _buildTotalRow('SUBTOTAL EXENTO IVA', '0.00', labelStyle, valueStyle),
-        _buildTotalRow('SUBTOTAL SIN IMPUESTOS', invoice.subtotal.toStringAsFixed(2), labelStyle, valueStyle),
-        _buildTotalRow('TOTAL DESCUENTO', invoice.totalDiscount.toStringAsFixed(2), labelStyle, valueStyle),
+        _buildTotalRow('SUBTOTAL SIN IMPUESTOS', invoice.totalSinImpuestos.toStringAsFixed(2), labelStyle, valueStyle),
+        _buildTotalRow('TOTAL DESCUENTO', invoice.totalDescuento.toStringAsFixed(2), labelStyle, valueStyle),
         _buildTotalRow('ICE', '0.00', labelStyle, valueStyle),
-        _buildTotalRow('IVA 12%', invoice.iva.toStringAsFixed(2), labelStyle, valueStyle), // Assuming all IVA is 12% or 15%
-        _buildTotalRow('PROPINA', invoice.tip.toStringAsFixed(2), labelStyle, valueStyle),
-        _buildTotalRow('VALOR TOTAL', invoice.total.toStringAsFixed(2), labelStyle, valueStyle),
+        _buildTotalRow('IVA', invoice.valorIVA.toStringAsFixed(2), labelStyle, valueStyle),
+        _buildTotalRow('PROPINA', invoice.propina.toStringAsFixed(2), labelStyle, valueStyle),
+        _buildTotalRow('VALOR TOTAL', invoice.importeTotal.toStringAsFixed(2), labelStyle, valueStyle),
       ],
     );
   }
@@ -301,5 +300,18 @@ class PdfGeneratorService {
         ),
       ],
     );
+  }
+  String _getPaymentMethodDescription(String code) {
+    const paymentMethods = {
+      '01': 'SIN UTILIZACION DEL SISTEMA FINANCIERO',
+      '15': 'COMPENSACIÓN DE DEUDAS',
+      '16': 'TARJETA DE DÉBITO',
+      '17': 'DINERO ELECTRÓNICO',
+      '18': 'TARJETA PREPAGO',
+      '19': 'TARJETA DE CRÉDITO',
+      '20': 'OTROS CON UTILIZACION DEL SISTEMA FINANCIERO',
+      '21': 'ENDOSO DE TÍTULOS',
+    };
+    return paymentMethods[code] ?? code;
   }
 }

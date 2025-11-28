@@ -1,4 +1,4 @@
-import 'package:zifra/domain/entities/sri_invoice.dart';
+import 'package:zifra/domain/entities/invoice.dart';
 
 /// Mock Client to simulate Serverpod generated client
 class Client {
@@ -8,7 +8,7 @@ class Client {
 }
 
 class InvoicesEndpoint {
-  Future<List<SRIinvoice>> getOpenProjectInvoices(String ruc) async {
+  Future<List<Invoice>> getOpenProjectInvoices(String ruc) async {
     // Mock implementation
     await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
     print('Checking open projects for RUC: $ruc');

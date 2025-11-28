@@ -1,8 +1,8 @@
 import 'package:zifra/core/client.dart';
-import 'package:zifra/domain/entities/sri_invoice.dart';
+import 'package:zifra/domain/entities/invoice.dart';
 
 abstract class ProjectRemoteDataSource {
-  Future<List<SRIinvoice>> getOpenProjectInvoices(String ruc);
+  Future<List<Invoice>> getOpenProjectInvoices(String ruc);
 }
 
 class ProjectRemoteDataSourceImpl implements ProjectRemoteDataSource {
@@ -11,7 +11,7 @@ class ProjectRemoteDataSourceImpl implements ProjectRemoteDataSource {
   ProjectRemoteDataSourceImpl({required this.client});
 
   @override
-  Future<List<SRIinvoice>> getOpenProjectInvoices(String ruc) async {
+  Future<List<Invoice>> getOpenProjectInvoices(String ruc) async {
     return await client.invoices.getOpenProjectInvoices(ruc);
   }
 }
