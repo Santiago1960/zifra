@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zifra/presentation/providers/auth_provider.dart';
 import 'package:zifra/presentation/widgets/custom_app_bar.dart';
+import 'package:zifra/presentation/widgets/invoice_drop_zone.dart';
 import 'package:zifra/presentation/widgets/user_registration_dialog.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -39,26 +40,40 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 );
               case AuthStatus.authenticated:
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Bienvenido, ${authState.user?.name}'),
-                    authState.user?.ruc.length == 13 
-                      ? Text('RUC: ${authState.user?.ruc}') 
-                      : Text('Cédula: ${authState.user?.ruc}'),
-                    const SizedBox(height: 20),
-                    if (authState.hasOpenProjects)
-                      const Text('Tienes proyectos abiertos.', style: TextStyle(color: Colors.green))
-                    else
-                      const Text('No se encontraron proyectos abiertos.', style: TextStyle(color: Colors.orange)),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () {
-                        // Navigate to invoice upload or analysis
-                      },
-                      child: const Text('Subir Facturas'),
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: SizedBox(
+                    width: 800.0,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Bienvenido, ${authState.user?.name}'),
+                            const SizedBox(width: 10),
+                            IconButton(
+                              onPressed: () {
+                                ref.read(authProvider.notifier).logout();
+                              },
+                              icon: const Icon(Icons.logout, color: Colors.red,),
+                              tooltip: 'Cerrar Sesión',
+                            ),
+                          ],
+                        ),
+                        authState.user?.ruc.length == 13 
+                          ? Text('RUC: ${authState.user?.ruc}') 
+                          : Text('Cédula: ${authState.user?.ruc}'),
+                        const SizedBox(height: 20),
+                        if (authState.hasOpenProjects)
+                          const Text('Tienes proyectos abiertos.', style: TextStyle(color: Colors.green))
+                        else
+                          const Text('No se encontraron proyectos abiertos.', style: TextStyle(color: Colors.orange)),
+                        const SizedBox(height: 30),
+                        const InvoiceDropZone(),
+                      ],
                     ),
-                  ],
+                  ),
                 );
               case AuthStatus.error:
                 return const Text('Ocurrió un error. Reinicia la app.');

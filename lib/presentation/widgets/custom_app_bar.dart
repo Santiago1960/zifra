@@ -24,13 +24,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
-        IconButton(
-          onPressed: () {
-            ref.read(authProvider.notifier).logout();
-          },
-          icon: const Icon(Icons.logout, color: Colors.red,),
-          tooltip: 'Cerrar Sesión',
-        ),
+        // Iconos para la pantalla de listado de facturas
       ],
       backgroundColor: Colors.white,
       elevation: 2,

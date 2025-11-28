@@ -5,6 +5,7 @@ import 'package:zifra/data/datasources/local/user_local_datasource.dart';
 import 'package:zifra/data/datasources/remote/project_remote_datasource.dart';
 import 'package:zifra/data/repositories/user_repository_impl.dart';
 import 'package:zifra/domain/repositories/user_repository.dart';
+import 'package:zifra/domain/services/pdf_generator_service.dart';
 
 // External
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
@@ -34,4 +35,8 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
     localDataSource: localDataSource,
     remoteDataSource: remoteDataSource,
   );
+});
+
+final pdfGeneratorServiceProvider = Provider<PdfGeneratorService>((ref) {
+  return PdfGeneratorService();
 });

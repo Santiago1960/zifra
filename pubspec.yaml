@@ -7,13 +7,22 @@ environment:
   sdk: ^3.10.1
 
 dependencies:
+  cross_file: ^0.3.5+1
+  desktop_drop: ^0.7.0
   equatable: ^2.0.7
+  file_picker: ^10.3.7
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.0.3
   http: ^1.6.0
+  open_filex: ^4.7.0
+  path_provider: ^2.1.5
+  pdf: ^3.11.3
+  printing: ^5.14.2
   serverpod_flutter: ^2.9.2
+  share_plus: ^12.0.1
   shared_preferences: ^2.5.3
+  xml: ^6.6.1
 
 dev_dependencies:
   flutter_test:
