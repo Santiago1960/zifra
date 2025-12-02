@@ -1,0 +1,90 @@
+import 'package:serverpod/serverpod.dart';
+import 'generated/protocol.dart';
+
+class InvoicesEndpoint extends Endpoint {
+
+  Future<List<Invoices>> getOpenProjectInvoices(
+    Session session,
+    String rucBeneficiario,
+  ) async {
+    
+    // 1. Buscar proyectos abiertos para el RUC dado
+    final openProjects = await Projects.db.find(
+      session,
+      where: (t) =>
+          t.rucBeneficiario.equals(rucBeneficiario) & t.isClosed.equals(false),
+    );
+
+    if (openProjects.isEmpty) {
+      return [];
+    }
+
+    // 2. Obtener los IDs de los proyectos encontrados
+    final projectIds = openProjects.map((p) => p.id).whereType<int>().toList();
+
+    if (projectIds.isEmpty) {
+      return [];
+    }
+
+    // 3. Buscar todas las facturas asociadas a esos proyectos
+    final invoices = await Invoices.db.find(
+      session,
+      where: (t) => t.projectId.inSet(projectIds.toSet()),
+      include: Invoices.include(
+        detalles: InvoiceDetail.includeList(),
+      ),
+    );
+
+    return invoices;
+  }
+
+  Future<bool> saveInvoices(Session session, List<Invoices> invoices) async {
+    return await session.db.transaction((transaction) async {
+      for (var invoice in invoices) {
+        // 1. Insert Invoice Header
+        final insertedInvoice = await Invoices.db.insertRow(
+          session,
+          invoice,
+          transaction: transaction,
+        );
+
+        // 2. Insert Invoice Details if present
+        if (invoice.detalles != null && invoice.detalles!.isNotEmpty) {
+          for (var detalle in invoice.detalles!) {
+            detalle.invoiceId = insertedInvoice.id!;
+          }
+          await InvoiceDetail.db.insert(
+            session,
+            invoice.detalles!,
+            transaction: transaction,
+          );
+        }
+
+        // 3. Insert Pagos if present
+        if (invoice.pagos != null && invoice.pagos!.isNotEmpty) {
+          for (var pago in invoice.pagos!) {
+            pago.invoiceId = insertedInvoice.id!;
+          }
+          await Pago.db.insert(
+            session,
+            invoice.pagos!,
+            transaction: transaction,
+          );
+        }
+
+        // 4. Insert Info Adicional if present
+        if (invoice.infoAdicional != null && invoice.infoAdicional!.isNotEmpty) {
+          for (var info in invoice.infoAdicional!) {
+            info.invoiceId = insertedInvoice.id!;
+          }
+          await InvoiceInfoAdicional.db.insert(
+            session,
+            invoice.infoAdicional!,
+            transaction: transaction,
+          );
+        }
+      }
+      return true;
+    });
+  }
+}

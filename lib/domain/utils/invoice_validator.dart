@@ -200,7 +200,6 @@ class InvoiceValidator {
         detalle: details,
         numeroAutorizacion: accessKey, // Usually same as access key or extracted
         fechaAutorizacion: date, // Using emission date as fallback or extract from somewhere else if needed
-        xmlContent: content,
         infoAdicional: additionalInfo,
         pagos: payments,
       );

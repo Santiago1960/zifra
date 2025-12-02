@@ -1,0 +1,56 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:zifra/domain/entities/invoice.dart';
+import 'package:zifra/core/exceptions/duplicate_invoices_exception.dart';
+
+abstract class InvoiceRemoteDataSource {
+  Future<bool> saveInvoices(List<Invoice> invoices, int projectId);
+}
+
+class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
+  @override
+  Future<bool> saveInvoices(List<Invoice> invoices, int projectId) async {
+    final url = Uri.parse('http://127.0.0.1:8080/invoices/saveInvoices');
+    try {
+      final invoicesJson = invoices.map((invoice) {
+        final json = invoice.toJson();
+        json['projectId'] = projectId;
+        return json;
+      }).toList();
+
+      final body = jsonEncode({
+          'invoices': invoicesJson,
+        });
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        
+        if (decoded == true || decoded == 'OK') {
+          return true;
+        }
+        
+        if (decoded is String && decoded.contains('DUPLICATES_FOUND:')) {
+           final parts = decoded.split('DUPLICATES_FOUND:');
+           if (parts.length > 1) {
+             final duplicatesStr = parts[1];
+             // Use /// as separator to avoid issues with | in company names
+             final messages = duplicatesStr.split('///');
+             throw DuplicateInvoicesException(messages);
+           }
+        }
+        
+        throw Exception('Unexpected response: $decoded');
+      } else {
+        throw Exception('Failed to save invoices: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+}

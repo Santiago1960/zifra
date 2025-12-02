@@ -10,8 +10,9 @@ import 'package:zifra/presentation/widgets/custom_app_bar.dart';
 
 class InvoiceListScreen extends ConsumerStatefulWidget {
   final List<Invoice> invoices;
+  final int? projectId;
 
-  const InvoiceListScreen({super.key, required this.invoices});
+  const InvoiceListScreen({super.key, required this.invoices, this.projectId});
 
   @override
   ConsumerState<InvoiceListScreen> createState() => _InvoiceListScreenState();
@@ -161,7 +162,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
 
                               final baseColor = isEven ? Colors.lightBlue.shade50 : Colors.white;
                               final rowColor = isSelected
-                                  ? Color.alphaBlend(Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3), baseColor)
+                                  ? Color.alphaBlend(Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3), baseColor)
                                   : baseColor;
 
                               return Container(

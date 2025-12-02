@@ -3,19 +3,25 @@
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cross_file/cross_file.dart';
+import 'package:zifra/data/datasources/remote/project_remote_datasource.dart';
 import 'package:zifra/domain/entities/invoice.dart';
 import 'package:zifra/domain/utils/invoice_validator.dart';
+import 'package:zifra/presentation/providers/auth_provider.dart';
+import 'package:zifra/presentation/providers/dependency_injection.dart';
 import 'package:zifra/presentation/screens/invoice_list_screen.dart';
+import 'package:zifra/presentation/widgets/project_creation_dialog.dart';
+import 'package:zifra/core/exceptions/duplicate_invoices_exception.dart';
 
-class InvoiceDropZone extends StatefulWidget {
+class InvoiceDropZone extends ConsumerStatefulWidget {
   const InvoiceDropZone({super.key});
 
   @override
-  State<InvoiceDropZone> createState() => _InvoiceDropZoneState();
+  ConsumerState<InvoiceDropZone> createState() => _InvoiceDropZoneState();
 }
 
-class _InvoiceDropZoneState extends State<InvoiceDropZone> {
+class _InvoiceDropZoneState extends ConsumerState<InvoiceDropZone> {
   bool _dragging = false;
   final List<FileValidationResult> _files = [];
 
@@ -188,17 +194,108 @@ class _InvoiceDropZoneState extends State<InvoiceDropZone> {
           if (_files.any((f) => f.isValid))
             SizedBox(
               child: ElevatedButton.icon(
-                onPressed: () {
+                onPressed: () async {
                   final validInvoices = _files
                       .where((f) => f.isValid && f.invoice != null)
                       .map((f) => f.invoice!)
                       .toList();
                   
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => InvoiceListScreen(invoices: validInvoices),
-                    ),
+                  // Show dialog
+                  final result = await showDialog<Map<String, String>>(
+                    context: context,
+                    builder: (context) => const ProjectCreationDialog(),
                   );
+
+                  if (result != null) {
+                    final clientName = result['client']!;
+                    final projectName = result['project']!;
+                    
+                    // Get RUC from auth
+                    final user = ref.read(authProvider).user;
+                    if (user == null) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Error: Usuario no autenticado'),backgroundColor: Colors.red, duration: const Duration(seconds: 10), showCloseIcon: true,),
+                          );
+                        }
+                        return;
+                    }
+
+                    try {
+                        // Show loading?
+                        // For now just await
+                        final projectId = await ref.read(projectRemoteDataSourceProvider).createProject(
+                            clientName,
+                            projectName,
+                            user.ruc,
+                        );
+
+                        try {
+                          // Save invoices
+                          await ref.read(invoiceRemoteDataSourceProvider).saveInvoices(validInvoices, projectId);
+                        } on DuplicateInvoicesException catch (e) {
+                          if (context.mounted) {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Facturas Duplicadas'),
+                                content: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Las siguientes facturas ya están registradas en otros proyectos:'),
+                                      const SizedBox(height: 10),
+                                      ...e.messages.map((msg) => Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                        child: Text('• $msg', style: const TextStyle(fontSize: 13)),
+                                      )),
+                                    ],
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    child: const Text('Cerrar'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          return;
+                        } catch (e) {
+                          if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error al guardar facturas: $e'), backgroundColor: Colors.red, duration:  const Duration(seconds: 10), showCloseIcon: true,),
+                              );
+                          }
+                          return; // Stop navigation if saving invoices fails
+                        }
+
+                        if (context.mounted) {
+                            Navigator.of(context).push(
+                                MaterialPageRoute(
+                                builder: (context) => InvoiceListScreen(
+                                invoices: validInvoices,
+                                projectId: projectId,
+                                ),
+                                ),
+                            );
+                        }
+                    } on ProjectExistsException catch (e) {
+                        if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(e.message), backgroundColor: Colors.red, duration: const Duration(seconds: 10), showCloseIcon: true,),
+                            );
+                        }
+                    } catch (e) {
+                        if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error al crear proyecto: $e'), backgroundColor: Colors.red, duration:  const Duration(seconds: 10), showCloseIcon: true,),
+                            );
+                        }
+                    }
+                  }
                 },
                 icon: const Icon(Icons.check),
                 label: const Text('Procesar Facturas'),

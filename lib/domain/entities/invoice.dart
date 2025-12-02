@@ -42,7 +42,6 @@ class Invoice extends Equatable {
   final bool estaSeleccionada;
 
   // Campos adicionales que estaban en la entidad anterior y podrian ser utiles
-  final String? xmlContent; // Para mantener compatibilidad si se usaba
   final Map<String, String> infoAdicional; // Para infoAdicional
   final List<Pago> pagos; // Lista de pagos
 
@@ -77,7 +76,6 @@ class Invoice extends Equatable {
     required this.fechaAutorizacion,
     this.categoria = 'Sin categoría',
     this.estaSeleccionada = false,
-    this.xmlContent,
     this.infoAdicional = const {},
     this.pagos = const [],
   });
@@ -127,7 +125,6 @@ class Invoice extends Equatable {
     String? fechaAutorizacion,
     String? categoria,
     bool? estaSeleccionada,
-    String? xmlContent,
     Map<String, String>? infoAdicional,
     List<Pago>? pagos,
   }) {
@@ -164,10 +161,68 @@ class Invoice extends Equatable {
       fechaAutorizacion: fechaAutorizacion ?? this.fechaAutorizacion,
       categoria: categoria ?? this.categoria,
       estaSeleccionada: estaSeleccionada ?? this.estaSeleccionada,
-      xmlContent: xmlContent ?? this.xmlContent,
       infoAdicional: infoAdicional ?? this.infoAdicional,
       pagos: pagos ?? this.pagos,
     );
+  }
+  Map<String, dynamic> toJson() {
+    String? formatDate(String date) {
+      try {
+        // Try parsing dd/MM/yyyy
+        final parts = date.split('/');
+        if (parts.length == 3) {
+          final day = int.parse(parts[0]);
+          final month = int.parse(parts[1]);
+          final year = int.parse(parts[2]);
+          return DateTime(year, month, day).toIso8601String();
+        }
+        // If not dd/MM/yyyy, try parsing as DateTime directly (if already ISO or similar)
+        return DateTime.parse(date).toIso8601String();
+      } catch (e) {
+        // Fallback: return original string if parsing fails, let server handle or fail
+        return date;
+      }
+    }
+
+    return {
+      'id': id,
+      'razonSocial': razonSocial,
+      'nombreComercial': nombreComercial,
+      'ruc': ruc,
+      'claveAcceso': claveAcceso,
+      'codDoc': codDoc,
+      'estab': estab,
+      'ptoEmi': ptoEmi,
+      'secuencial': secuencial,
+      'dirMatriz': dirMatriz,
+      'fechaEmision': formatDate(fechaEmision),
+      'dirEstablecimiento': dirEstablecimiento,
+      'contribuyenteEspecial': contribuyenteEspecial,
+      'obligadoContabilidad': obligadoContabilidad,
+      'tipoIdentificacionComprador': tipoIdentificacionComprador,
+      'razonSocialComprador': razonSocialComprador,
+      'identificacionComprador': identificacionComprador,
+      'totalSinImpuestos': totalSinImpuestos,
+      'totalDescuento': totalDescuento,
+      'baseImponibleIvaCero': baseImponibleIvaCero,
+      'baseImponibleIva': baseImponibleIva,
+      'valorIVA': valorIVA,
+      'valorDevolucionIva': valorDevolucionIva,
+      'propina': propina,
+      'importeTotal': importeTotal,
+      'detalles': detalle.map((e) => e.toJson()).toList(),
+      'numeroAutorizacion': numeroAutorizacion,
+      'fechaAutorizacion': formatDate(fechaAutorizacion),
+      'categoria': categoria,
+      'estaSeleccionada': estaSeleccionada,
+      'certificada': false,
+      'infoAdicional': infoAdicional.entries.map((e) => {
+        'clave': e.key, 
+        'valor': e.value, 
+        'invoiceId': 0
+      }).toList(),
+      'pagos': pagos.map((e) => e.toJson()).toList(),
+    };
   }
 }
 
@@ -189,6 +244,18 @@ class InvoiceDetail extends Equatable {
     required this.descuento,
     required this.precioTotalSinImpuesto,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'codigoPrincipal': codigoPrincipal,
+      'descripcion': descripcion,
+      'cantidad': cantidad,
+      'precioUnitario': precioUnitario,
+      'descuento': descuento,
+      'precioTotalSinImpuesto': precioTotalSinImpuesto,
+      'invoiceId': 0,
+    };
+  }
 
   @override
   List<Object?> get props => [
@@ -212,6 +279,16 @@ class Pago extends Equatable {
     required this.plazo,
     required this.unidadTiempo,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'formaPago': formaPago,
+      'total': total,
+      'plazo': plazo,
+      'unidadTiempo': unidadTiempo,
+      'invoiceId': 0,
+    };
+  }
 
   @override
   List<Object?> get props => [formaPago, total, plazo, unidadTiempo];
