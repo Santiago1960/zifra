@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zifra/domain/entities/project.dart';
 import 'package:zifra/domain/entities/user.dart';
 import 'package:zifra/presentation/providers/dependency_injection.dart';
 
@@ -14,22 +15,26 @@ class AuthState {
   final AuthStatus status;
   final User? user;
   final bool hasOpenProjects;
+  final List<Project> projects;
 
   AuthState({
     this.status = AuthStatus.initial,
     this.user,
     this.hasOpenProjects = false,
+    this.projects = const [],
   });
 
   AuthState copyWith({
     AuthStatus? status,
     User? user,
     bool? hasOpenProjects,
+    List<Project>? projects,
   }) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,
       hasOpenProjects: hasOpenProjects ?? this.hasOpenProjects,
+      projects: projects ?? this.projects,
     );
   }
 }
@@ -56,11 +61,13 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = await userRepository.getUser();
       if (user != null) {
         // User found, check open projects
-        final hasOpenProjects = await userRepository.hasOpenProjects(user.ruc);
+        final projects = await userRepository.getProjects(user.ruc);
+        final hasOpenProjects = projects.isNotEmpty;
         state = state.copyWith(
           status: AuthStatus.authenticated,
           user: user,
           hasOpenProjects: hasOpenProjects,
+          projects: projects,
         );
       } else {
         // User not found
@@ -79,12 +86,14 @@ class AuthNotifier extends Notifier<AuthState> {
       await userRepository.saveUser(user);
       
       // After saving, check open projects
-      final hasOpenProjects = await userRepository.hasOpenProjects(ruc);
+      final projects = await userRepository.getProjects(ruc);
+      final hasOpenProjects = projects.isNotEmpty;
       
       state = state.copyWith(
         status: AuthStatus.authenticated,
         user: user,
         hasOpenProjects: hasOpenProjects,
+        projects: projects,
       );
     } catch (e) {
       state = state.copyWith(status: AuthStatus.error);
@@ -99,6 +108,7 @@ class AuthNotifier extends Notifier<AuthState> {
         status: AuthStatus.unauthenticated,
         user: null,
         hasOpenProjects: false,
+        projects: [],
       );
     } catch (e) {
       state = state.copyWith(status: AuthStatus.error);

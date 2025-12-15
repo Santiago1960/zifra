@@ -1,5 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:zifra/data/datasources/local/user_local_datasource.dart';
 import 'package:zifra/data/datasources/remote/project_remote_datasource.dart';
+import 'package:zifra/domain/entities/project.dart';
 import 'package:zifra/domain/entities/user.dart';
 import 'package:zifra/domain/repositories/user_repository.dart';
 
@@ -40,9 +42,14 @@ class UserRepositoryImpl implements UserRepository {
       return invoices.isNotEmpty; 
     } catch (e) {
       // Handle error or return false
-      print('Error checking open projects: $e');
+      debugPrint('Error checking open projects: $e');
       return false;
     }
+  }
+
+  @override
+  Future<List<Project>> getProjects(String ruc) async {
+    return await remoteDataSource.getProjects(ruc);
   }
 
   @override

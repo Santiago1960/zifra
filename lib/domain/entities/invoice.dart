@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 class Invoice extends Equatable {
   // ID de la factura en la base de datos
   final int? id;
+  final int? projectId;
 
   // Info tributaria
   final String razonSocial;
@@ -47,6 +48,7 @@ class Invoice extends Equatable {
 
   const Invoice({
     this.id,
+    this.projectId,
     required this.razonSocial,
     required this.nombreComercial,
     required this.ruc,
@@ -88,6 +90,7 @@ class Invoice extends Equatable {
   @override
   List<Object?> get props => [
         id,
+        projectId,
         ruc,
         claveAcceso,
         secuencial,
@@ -96,6 +99,7 @@ class Invoice extends Equatable {
 
   Invoice copyWith({
     int? id,
+    int? projectId,
     String? razonSocial,
     String? nombreComercial,
     String? ruc,
@@ -130,6 +134,7 @@ class Invoice extends Equatable {
   }) {
     return Invoice(
       id: id ?? this.id,
+      projectId: projectId ?? this.projectId,
       razonSocial: razonSocial ?? this.razonSocial,
       nombreComercial: nombreComercial ?? this.nombreComercial,
       ruc: ruc ?? this.ruc,
@@ -165,6 +170,56 @@ class Invoice extends Equatable {
       pagos: pagos ?? this.pagos,
     );
   }
+
+  factory Invoice.fromJson(Map<String, dynamic> json) {
+    return Invoice(
+      id: json['id'],
+      projectId: json['projectId'],
+      razonSocial: json['razonSocial'] ?? '',
+      nombreComercial: json['nombreComercial'] ?? '',
+      ruc: json['ruc'] ?? '',
+      claveAcceso: json['claveAcceso'] ?? '',
+      codDoc: json['codDoc'] ?? '',
+      estab: json['estab'] ?? '',
+      ptoEmi: json['ptoEmi'] ?? '',
+      secuencial: json['secuencial'] ?? '',
+      dirMatriz: json['dirMatriz'] ?? '',
+      fechaEmision: json['fechaEmision'] ?? '',
+      dirEstablecimiento: json['dirEstablecimiento'] ?? '',
+      contribuyenteEspecial: json['contribuyenteEspecial'] ?? '',
+      obligadoContabilidad: json['obligadoContabilidad'] ?? '',
+      tipoIdentificacionComprador: json['tipoIdentificacionComprador'] ?? '',
+      razonSocialComprador: json['razonSocialComprador'] ?? '',
+      identificacionComprador: json['identificacionComprador'] ?? '',
+      totalSinImpuestos: (json['totalSinImpuestos'] ?? 0).toDouble(),
+      totalDescuento: (json['totalDescuento'] ?? 0).toDouble(),
+      baseImponibleIvaCero: (json['baseImponibleIvaCero'] ?? 0).toDouble(),
+      baseImponibleIva: (json['baseImponibleIva'] ?? 0).toDouble(),
+      valorIVA: (json['valorIVA'] ?? 0).toDouble(),
+      valorDevolucionIva: (json['valorDevolucionIva'] ?? 0).toDouble(),
+      propina: (json['propina'] ?? 0).toDouble(),
+      importeTotal: (json['importeTotal'] ?? 0).toDouble(),
+      detalle: (json['detalles'] as List<dynamic>?)
+              ?.map((e) => InvoiceDetail.fromJson(e))
+              .toList() ??
+          [],
+      numeroAutorizacion: json['numeroAutorizacion'] ?? '',
+      fechaAutorizacion: json['fechaAutorizacion'] ?? '',
+      categoria: json['categoria'] ?? 'Sin categoría',
+      estaSeleccionada: json['estaSeleccionada'] ?? false,
+      infoAdicional: (json['infoAdicional'] as List<dynamic>?)
+              ?.fold<Map<String, String>>({}, (map, item) {
+            map[item['clave']] = item['valor'];
+            return map;
+          }) ??
+          {},
+      pagos: (json['pagos'] as List<dynamic>?)
+              ?.map((e) => Pago.fromJson(e))
+              .toList() ??
+          [],
+    );
+  }
+
   Map<String, dynamic> toJson() {
     String? formatDate(String date) {
       try {
@@ -186,6 +241,7 @@ class Invoice extends Equatable {
 
     return {
       'id': id,
+      'projectId': projectId,
       'razonSocial': razonSocial,
       'nombreComercial': nombreComercial,
       'ruc': ruc,
@@ -229,6 +285,7 @@ class Invoice extends Equatable {
 // MODELO PARA EL DETALLE DE LA FACTURA
 class InvoiceDetail extends Equatable {
   final String codigoPrincipal;
+  final String? codigoAuxiliar;
   final String descripcion;
   final double cantidad;
   final double precioUnitario;
@@ -238,6 +295,7 @@ class InvoiceDetail extends Equatable {
 
   const InvoiceDetail({
     required this.codigoPrincipal,
+    this.codigoAuxiliar,
     required this.descripcion,
     required this.cantidad,
     required this.precioUnitario,
@@ -245,9 +303,22 @@ class InvoiceDetail extends Equatable {
     required this.precioTotalSinImpuesto,
   });
 
+  factory InvoiceDetail.fromJson(Map<String, dynamic> json) {
+    return InvoiceDetail(
+      codigoPrincipal: json['codigoPrincipal'] ?? '',
+      codigoAuxiliar: json['codigoAuxiliar'],
+      descripcion: json['descripcion'] ?? '',
+      cantidad: (json['cantidad'] ?? 0).toDouble(),
+      precioUnitario: (json['precioUnitario'] ?? 0).toDouble(),
+      descuento: (json['descuento'] ?? 0).toDouble(),
+      precioTotalSinImpuesto: (json['precioTotalSinImpuesto'] ?? 0).toDouble(),
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'codigoPrincipal': codigoPrincipal,
+      'codigoAuxiliar': codigoAuxiliar,
       'descripcion': descripcion,
       'cantidad': cantidad,
       'precioUnitario': precioUnitario,
@@ -260,6 +331,7 @@ class InvoiceDetail extends Equatable {
   @override
   List<Object?> get props => [
         codigoPrincipal,
+        codigoAuxiliar,
         descripcion,
         cantidad,
         precioUnitario,
@@ -279,6 +351,15 @@ class Pago extends Equatable {
     required this.plazo,
     required this.unidadTiempo,
   });
+
+  factory Pago.fromJson(Map<String, dynamic> json) {
+    return Pago(
+      formaPago: json['formaPago'] ?? '',
+      total: (json['total'] ?? 0).toDouble(),
+      plazo: (json['plazo'] ?? 0).toDouble(),
+      unidadTiempo: json['unidadTiempo'] ?? '',
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {

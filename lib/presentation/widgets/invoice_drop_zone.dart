@@ -215,7 +215,7 @@ class _InvoiceDropZoneState extends ConsumerState<InvoiceDropZone> {
                     if (user == null) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Error: Usuario no autenticado'),backgroundColor: Colors.red, duration: const Duration(seconds: 10), showCloseIcon: true,),
+                              const SnackBar(content: Text('Error: Usuario no autenticado'),backgroundColor: Colors.red, duration: Duration(seconds: 10), showCloseIcon: true,),
                           );
                         }
                         return;
@@ -298,16 +298,30 @@ class _InvoiceDropZoneState extends ConsumerState<InvoiceDropZone> {
                   }
                 },
                 icon: const Icon(Icons.check),
-                label: const Text('Procesar Facturas'),
+                label: Text('Procesar ${_files.where((f) => f.isValid && f.invoice != null).length} Facturas'),
               ),
             ),
           const SizedBox(height: 10),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Archivos procesados:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Archivos procesados:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _files.clear();
+                  });
+                },
+                icon: const Icon(Icons.delete_sweep, size: 20),
+                label: const Text('Limpiar todo'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           ListView.builder(

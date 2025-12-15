@@ -3,11 +3,16 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:zifra/domain/entities/invoice.dart';
 
 class PdfGeneratorService {
   Future<Uint8List> generatePdf(Invoice invoice) async {
     final pdf = pw.Document();
+
+    final font = await PdfGoogleFonts.openSansRegular();
+    final fontBold = await PdfGoogleFonts.openSansBold();
+    final fontMono = await PdfGoogleFonts.robotoMonoRegular();
 
     pw.MemoryImage? logo;
     try {
@@ -19,11 +24,15 @@ class PdfGeneratorService {
 
     pdf.addPage(
       pw.MultiPage(
+        theme: pw.ThemeData.withFont(
+          base: font,
+          bold: fontBold,
+        ),
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(20),
         build: (context) {
           return [
-            _buildHeader(invoice, logo),
+            _buildHeader(invoice, logo, fontMono),
             pw.SizedBox(height: 10),
             _buildCustomerInfo(invoice),
             pw.SizedBox(height: 10),
@@ -53,7 +62,7 @@ class PdfGeneratorService {
     return pdf.save();
   }
 
-  pw.Widget _buildHeader(Invoice invoice, pw.MemoryImage? logo) {
+  pw.Widget _buildHeader(Invoice invoice, pw.MemoryImage? logo, pw.Font fontMono) {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -141,7 +150,7 @@ class PdfGeneratorService {
                   barcode: pw.Barcode.code128(),
                   height: 40,
                   drawText: true,
-                  textStyle: const pw.TextStyle(fontSize: 8),
+                  textStyle: pw.TextStyle(fontSize: 8, font: fontMono),
                 ),
               ],
             ),
@@ -211,7 +220,7 @@ class PdfGeneratorService {
         <String>['Cod. Principal', 'Cod. Auxiliar', 'Cant.', 'Descripción', 'Precio Unitario', 'Desc.', 'Precio Total'],
         ...invoice.detalle.map((item) => [
           item.codigoPrincipal,
-          '--', // auxCode not in SRIinvoiceDetail
+          (item.codigoAuxiliar != null && item.codigoAuxiliar!.isNotEmpty) ? item.codigoAuxiliar! : '--',
           item.cantidad.toStringAsFixed(2),
           item.descripcion,
           item.precioUnitario.toStringAsFixed(2),

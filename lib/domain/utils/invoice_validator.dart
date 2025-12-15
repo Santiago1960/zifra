@@ -122,7 +122,7 @@ class InvoiceValidator {
       if (detallesNode != null) {
         for (final detalle in detallesNode.findElements('detalle')) {
           final mainCode = detalle.findElements('codigoPrincipal').firstOrNull?.innerText ?? '';
-          // auxCode ignored as not in InvoiceDetail
+          final auxCode = detalle.findElements('codigoAuxiliar').firstOrNull?.innerText ?? '';
           final description = detalle.findElements('descripcion').first.innerText;
           final quantity = double.parse(detalle.findElements('cantidad').first.innerText);
           final unitPrice = double.parse(detalle.findElements('precioUnitario').first.innerText);
@@ -131,6 +131,7 @@ class InvoiceValidator {
 
           details.add(InvoiceDetail(
             codigoPrincipal: mainCode,
+            codigoAuxiliar: auxCode,
             descripcion: description,
             cantidad: quantity,
             precioUnitario: unitPrice,

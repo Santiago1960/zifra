@@ -1,11 +1,15 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:zifra/core/client.dart';
 import 'package:zifra/domain/entities/invoice.dart';
+import 'package:zifra/domain/entities/project.dart';
 
 abstract class ProjectRemoteDataSource {
   Future<List<Invoice>> getOpenProjectInvoices(String ruc);
+  Future<List<Project>> getProjects(String ruc);
   Future<int> createProject(String clientName, String projectName, String rucBeneficiario);
+  Future<List<Invoice>> getProjectInvoices(int projectId);
 }
 
 class ProjectRemoteDataSourceImpl implements ProjectRemoteDataSource {
@@ -16,6 +20,58 @@ class ProjectRemoteDataSourceImpl implements ProjectRemoteDataSource {
   @override
   Future<List<Invoice>> getOpenProjectInvoices(String ruc) async {
     return await client.invoices.getOpenProjectInvoices(ruc);
+  }
+
+  @override
+  Future<List<Invoice>> getProjectInvoices(int projectId) async {
+    final url = Uri.parse('http://127.0.0.1:8080/invoices/getProjectInvoices');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'projectId': projectId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decoded = jsonDecode(response.body);
+        return decoded.map((json) => Invoice.fromJson(json)).toList();
+      } else {
+        debugPrint('Error getting project invoices: ${response.statusCode}');
+        debugPrint('Response body: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Exception getting project invoices: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Project>> getProjects(String ruc) async {
+    final url = Uri.parse('http://127.0.0.1:8080/projects/getOpenProjects');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'rucBeneficiario': ruc,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decoded = jsonDecode(response.body);
+        return decoded.map((json) => Project.fromJson(json)).toList();
+      } else {
+        debugPrint('Error getting projects: ${response.statusCode}');
+        debugPrint('Response body: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Exception getting projects: $e');
+      return [];
+    }
   }
 
   @override
@@ -39,8 +95,8 @@ class ProjectRemoteDataSourceImpl implements ProjectRemoteDataSource {
       if (response.statusCode == 200) {
         return int.parse(response.body);
       } else {
-        print('Error creating project: ${response.statusCode}');
-        print('Response body: ${response.body}');
+        debugPrint('Error creating project: ${response.statusCode}');
+        debugPrint('Response body: ${response.body}');
         if (response.statusCode == 409 || response.body.toLowerCase().contains('existe')) {
           String message = 'El proyecto ya existe';
           try {

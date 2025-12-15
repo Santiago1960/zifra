@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zifra/presentation/providers/auth_provider.dart';
+import 'package:zifra/presentation/providers/dependency_injection.dart';
+import 'package:zifra/presentation/screens/invoice_list_screen.dart';
 import 'package:zifra/presentation/widgets/custom_app_bar.dart';
 import 'package:zifra/presentation/widgets/invoice_drop_zone.dart';
 import 'package:zifra/presentation/widgets/user_registration_dialog.dart';
@@ -66,7 +68,86 @@ class HomeScreen extends ConsumerWidget {
                           : Text('Cédula: ${authState.user?.ruc}'),
                         const SizedBox(height: 20),
                         if (authState.hasOpenProjects)
-                          const Text('Tienes proyectos abiertos.', style: TextStyle(color: Colors.green))
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 1.5,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
+                            itemCount: authState.projects.length,
+                            itemBuilder: (context, index) {
+                              final project = authState.projects[index];
+                              return Card(
+                                elevation: 4,
+                                child: InkWell(
+                                  onTap: () async {
+                                    if (project.id == null) return;
+
+                                    // Show loading
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                                    );
+
+                                    try {
+                                      final invoices = await ref.read(projectRemoteDataSourceProvider).getProjectInvoices(project.id!);
+                                      
+                                      if (context.mounted) {
+                                        Navigator.pop(context); // Hide loading
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => InvoiceListScreen(
+                                              invoices: invoices,
+                                              projectId: project.id,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        Navigator.pop(context); // Hide loading
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error al cargar facturas: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          project.nombre,
+                                          style: Theme.of(context).textTheme.titleLarge,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Cliente: ${project.cliente}',
+                                          style: Theme.of(context).textTheme.bodyMedium,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'RUC: ${project.rucBeneficiario ?? "N/A"}',
+                                          style: Theme.of(context).textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          )
                         else
                           const Text('No se encontraron proyectos abiertos.', style: TextStyle(color: Colors.orange)),
                         const SizedBox(height: 30),
