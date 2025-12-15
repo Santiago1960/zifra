@@ -19,36 +19,142 @@ class InvoiceListScreen extends ConsumerStatefulWidget {
 }
 
 class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
-  final Set<int> _selectedIndexes = {};
+  final Set<String> _selectedIds = {};
   bool _selectAll = false;
+  List<Invoice>? _sortedInvoices; // Changed from late to nullable
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
+
+  List<Invoice> get _currentInvoices => _sortedInvoices ?? widget.invoices;
+
+  double get _totalSelectedAmount {
+    return widget.invoices
+        .where((i) => _selectedIds.contains(i.claveAcceso))
+        .fold(0.0, (sum, i) => sum + i.importeTotal);
+  }
 
   @override
   void initState() {
     super.initState();
     _selectAll = true;
-    _selectedIndexes.addAll(List.generate(widget.invoices.length, (i) => i));
+    // _sortedInvoices initialization removed to support hot reload safety
+    _selectedIds.addAll(widget.invoices.map((i) => i.claveAcceso));
+  }
+
+  @override
+  void didUpdateWidget(InvoiceListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.invoices != oldWidget.invoices) {
+      setState(() {
+        _sortedInvoices = null; // Reset to new data
+        _selectedIds.clear();
+        _selectAll = false;
+      });
+    }
   }
 
   void _onSelectAll(bool? value) {
     setState(() {
       _selectAll = value ?? false;
       if (_selectAll) {
-        _selectedIndexes.addAll(List.generate(widget.invoices.length, (i) => i));
+        _selectedIds.addAll(_currentInvoices.map((i) => i.claveAcceso));
       } else {
-        _selectedIndexes.clear();
+        _selectedIds.clear();
       }
     });
   }
 
-  void _onSelect(int index, bool? value) {
+  void _onSelect(String id, bool? value) {
     setState(() {
       if (value == true) {
-        _selectedIndexes.add(index);
+        _selectedIds.add(id);
       } else {
-        _selectedIndexes.remove(index);
+        _selectedIds.remove(id);
       }
-      _selectAll = _selectedIndexes.length == widget.invoices.length;
+      _selectAll = _selectedIds.length == _currentInvoices.length;
     });
+  }
+
+  void _sortData(int columnIndex, bool ascending) {
+    setState(() {
+      _sortColumnIndex = columnIndex;
+      _sortAscending = ascending;
+      
+      // Initialize if null (first sort) or re-sort existing
+      _sortedInvoices = List.from(_currentInvoices);
+      
+      _sortedInvoices!.sort((a, b) {
+        int compare = 0;
+        switch (columnIndex) {
+          case 0: // Fecha
+            // Assuming format DD/MM/YYYY
+            try {
+              final aParts = a.fechaEmision.split('/');
+              final bParts = b.fechaEmision.split('/');
+              final aDate = DateTime(int.parse(aParts[2]), int.parse(aParts[1]), int.parse(aParts[0]));
+              final bDate = DateTime(int.parse(bParts[2]), int.parse(bParts[1]), int.parse(bParts[0]));
+              compare = aDate.compareTo(bDate);
+            } catch (e) {
+              compare = a.fechaEmision.compareTo(b.fechaEmision);
+            }
+            break;
+          case 1: // Número (Secuencial)
+             compare = a.secuencial.compareTo(b.secuencial);
+             break;
+          case 2: // Emisor
+            compare = a.razonSocial.compareTo(b.razonSocial);
+            break;
+          case 3: // Total
+            compare = a.importeTotal.compareTo(b.importeTotal);
+            break;
+          case 4: // Categoría
+            final catA = a.categoria.isEmpty ? 'Sin categoría' : a.categoria;
+            final catB = b.categoria.isEmpty ? 'Sin categoría' : b.categoria;
+            compare = catA.compareTo(catB);
+            break;
+        }
+        return ascending ? compare : -compare;
+      });
+      
+       // Selection is preserved because we use IDs now
+    });
+  }
+
+  String _formatDate(String date) {
+    try {
+      if (date.contains('T')) {
+        final parsed = DateTime.parse(date);
+        return '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+      }
+      return date;
+    } catch (e) {
+      return date;
+    }
+  }
+  
+  Widget _buildHeaderCell(String label, int index, {int flex = 1}) {
+    return Expanded(
+      flex: flex,
+      child: InkWell(
+        onTap: () {
+          _sortData(index, _sortColumnIndex == index ? !_sortAscending : true);
+        },
+        child: Row(
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0)),
+            if (_sortColumnIndex == index)
+              Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: Icon(
+                  _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                  size: 16,
+                  color: Colors.red,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _openPdf(Invoice invoice) async {
@@ -105,12 +211,16 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Facturas Seleccionadas (${_selectedIndexes.length})',
+                'Facturas Seleccionadas (${_selectedIds.length})',
                 style: Theme.of(context).textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 20),
+              Text(
+                'Toca en los títulos para ordenar',
+                style: Theme.of(context).textTheme.bodySmall!,
+              ),
+              const SizedBox(height: 10),
               SizedBox(
-                height: 600,
+                height: 500,
                 width: 1000,
                 child: Container(
                   decoration: BoxDecoration(
@@ -132,11 +242,11 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                                 onChanged: _onSelectAll,
                               ),
                             ),
-                            const Expanded(flex: 2, child: Text('Fecha', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0,))),
-                            const Expanded(flex: 2, child: Text('Número', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0,))),
-                            const Expanded(flex: 4, child: Text('Emisor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0,))),
-                            const Expanded(flex: 2, child: Text('Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0,))),
-                            const Expanded(flex: 3, child: Text('Categoría', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0,))),
+                            _buildHeaderCell('Fecha', 0, flex: 2),
+                            _buildHeaderCell('Número', 1, flex: 2),
+                            _buildHeaderCell('Emisor', 2, flex: 4),
+                            _buildHeaderCell('Total', 3, flex: 2),
+                            _buildHeaderCell('Categoría', 4, flex: 3),
                             const SizedBox(width: 50, child: Text('Ver', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0,))),
                           ],
                         ),
@@ -150,10 +260,10 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                           controller: _scrollController,
                           child: ListView.builder(
                             controller: _scrollController,
-                            itemCount: widget.invoices.length,
+                            itemCount: _currentInvoices.length,
                             itemBuilder: (context, index) {
-                              final invoice = widget.invoices[index];
-                              final isSelected = _selectedIndexes.contains(index);
+                              final invoice = _currentInvoices[index];
+                              final isSelected = _selectedIds.contains(invoice.claveAcceso);
                               final isEven = index % 2 == 0;
 
                               // Extract only the sequential part
@@ -174,10 +284,10 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                                       width: 40,
                                       child: Checkbox(
                                         value: isSelected,
-                                        onChanged: (value) => _onSelect(index, value),
+                                        onChanged: (value) => _onSelect(invoice.claveAcceso, value),
                                       ),
                                     ),
-                                    Expanded(flex: 2, child: Text(invoice.fechaEmision)),
+                                    Expanded(flex: 2, child: Text(_formatDate(invoice.fechaEmision))),
                                     Expanded(flex: 2, child: Text(shortSequential)),
                                     Expanded(flex: 4, child: Text(invoice.razonSocial)),
                                     Expanded(flex: 2, child: Text('\$${invoice.importeTotal.toStringAsFixed(2)}')),
@@ -200,6 +310,28 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                       ),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: 1000,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Seleccionado:',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '\$${_totalSelectedAmount.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
               ),
             ],
