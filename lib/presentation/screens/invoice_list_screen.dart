@@ -27,11 +27,78 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
   List<Invoice>? _sortedInvoices; // Changed from late to nullable
   int? _sortColumnIndex;
   bool _sortAscending = true;
+  
+  // Filtros
+  DateTimeRange? _dateFilter;
+  String _issuerFilter = '';
+  Set<int?> _categoryFilter = {}; // null representa "Sin categoría"
+  final TextEditingController _issuerFilterController = TextEditingController();
+  
+  // Lista local mutable para mantener cambios de categoría
+  List<Invoice>? _localInvoices;
 
-  List<Invoice> get _currentInvoices => _sortedInvoices ?? widget.invoices;
+  List<Invoice> get _filteredInvoices {
+    // Usar lista local si existe, sino widget.invoices
+    final sourceInvoices = _localInvoices ?? widget.invoices;
+    var result = sourceInvoices;
+    
+    // Filtro de fecha
+    if (_dateFilter != null) {
+      result = result.where((invoice) {
+        try {
+          DateTime invoiceDate;
+          
+          // Detectar formato de fecha
+          if (invoice.fechaEmision.contains('T')) {
+            // Formato ISO 8601: 2025-10-27T00:00:00.000
+            invoiceDate = DateTime.parse(invoice.fechaEmision);
+          } else if (invoice.fechaEmision.contains('/')) {
+            // Formato DD/MM/YYYY
+            final parts = invoice.fechaEmision.split('/');
+            invoiceDate = DateTime(
+              int.parse(parts[2]), 
+              int.parse(parts[1]), 
+              int.parse(parts[0])
+            );
+          } else {
+            return true; // Incluir si no se puede determinar el formato
+          }
+          
+          // Normalizar fechas a medianoche para comparación correcta
+          final normalizedInvoiceDate = DateTime(invoiceDate.year, invoiceDate.month, invoiceDate.day);
+          final normalizedStart = DateTime(_dateFilter!.start.year, _dateFilter!.start.month, _dateFilter!.start.day);
+          final normalizedEnd = DateTime(_dateFilter!.end.year, _dateFilter!.end.month, _dateFilter!.end.day);
+          
+          // Comparación inclusiva usando compareTo
+          return normalizedInvoiceDate.compareTo(normalizedStart) >= 0 && 
+                 normalizedInvoiceDate.compareTo(normalizedEnd) <= 0;
+        } catch (e) {
+          return true; // Si hay error de parsing, incluir la factura
+        }
+      }).toList();
+    }
+    
+    // Filtro de emisor
+    if (_issuerFilter.isNotEmpty) {
+      result = result.where((i) => 
+        i.razonSocial.toLowerCase().contains(_issuerFilter.toLowerCase())
+      ).toList();
+    }
+    
+    // Filtro de categoría
+    if (_categoryFilter.isNotEmpty) {
+      result = result.where((i) => 
+        _categoryFilter.contains(i.categoryId)
+      ).toList();
+    }
+    
+    return result;
+  }
+
+  List<Invoice> get _currentInvoices => _sortedInvoices ?? _filteredInvoices;
 
   double get _totalSelectedAmount {
-    return widget.invoices
+    return _filteredInvoices
         .where((i) => _selectedIds.contains(i.claveAcceso))
         .fold(0.0, (sum, i) => sum + i.importeTotal);
   }
@@ -52,6 +119,12 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
         _sortedInvoices = null; // Reset to new data
         _selectedIds.clear();
         _selectAll = false;
+        // Limpiar filtros
+        _dateFilter = null;
+        _issuerFilter = '';
+        _categoryFilter.clear();
+        // Resetear lista local
+        _localInvoices = null;
       });
     }
   }
@@ -84,7 +157,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
       _sortAscending = ascending;
       
       // Initialize if null (first sort) or re-sort existing
-      _sortedInvoices = List.from(_currentInvoices);
+      _sortedInvoices = List.from(_filteredInvoices);
       
       _sortedInvoices!.sort((a, b) {
         int compare = 0;
@@ -112,8 +185,8 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             break;
           case 4: // Categoría
             final categories = ref.read(categoryProvider);
-            final catA = categories.firstWhere((c) => c.id != null && c.id == a.categoriaId, orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000')).name;
-            final catB = categories.firstWhere((c) => c.id != null && c.id == b.categoriaId, orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000')).name;
+            final catA = categories.firstWhere((c) => c.id != null && c.id == a.categoryId, orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000')).name;
+            final catB = categories.firstWhere((c) => c.id != null && c.id == b.categoryId, orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000')).name;
             compare = catA.compareTo(catB);
             break;
         }
@@ -193,46 +266,130 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
     }
   }
 
-  void _updateInvoiceCategory(Invoice invoice, int? categoryId) {
-    // This is a temporary local update. In a real app, you'd update the backend/provider.
-    // Since we don't have a mutable list provider here, we'll just update the local sorted list if it exists,
-    // or we'd need a way to notify the parent.
-    // For now, let's assume we can update the widget.invoices (which is bad practice) or just setState locally.
-    
-    // Better approach: Create a local copy of invoices if not already done, or use a provider.
-    // Given the constraints, I'll update the local state.
-    
+  Future<void> _updateInvoiceCategory(Invoice invoice, int? categoryId) async {
+    // Actualizar UI inmediatamente para respuesta rápida
     setState(() {
-      final newInvoice = invoice.copyWith(categoriaId: categoryId);
-      
-      if (_sortedInvoices != null) {
-        final index = _sortedInvoices!.indexWhere((i) => i.claveAcceso == invoice.claveAcceso);
-        if (index != -1) {
-          _sortedInvoices![index] = newInvoice;
-        }
-      } else {
-        // If we are using widget.invoices directly, we can't modify it.
-        // We must initialize _sortedInvoices to be able to edit.
-        _sortedInvoices = List.from(widget.invoices);
-        final index = _sortedInvoices!.indexWhere((i) => i.claveAcceso == invoice.claveAcceso);
-        if (index != -1) {
-          _sortedInvoices![index] = newInvoice;
-        }
+      _localInvoices ??= List.from(widget.invoices);
+      final index = _localInvoices!.indexWhere((i) => i.claveAcceso == invoice.claveAcceso);
+      if (index != -1) {
+        _localInvoices![index] = invoice.copyWith(categoryId: categoryId);
       }
+      _sortedInvoices = null;
+    });
+
+    // Persistir en el backend
+    try {
+      final datasource = ref.read(invoiceRemoteDataSourceProvider);
+      final success = await datasource.updateInvoiceCategory(invoice.claveAcceso, categoryId);
+      
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al actualizar la categoría')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al guardar: $e')),
+        );
+      }
+    }
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _dateFilter = null;
+      _issuerFilter = '';
+      _issuerFilterController.clear(); // Limpiar el TextField
+      _categoryFilter.clear();
+      _sortedInvoices = null; // Reset ordenamiento
     });
   }
+
+  bool get _hasActiveFilters => 
+    _dateFilter != null || 
+    _issuerFilter.isNotEmpty || 
+    _categoryFilter.isNotEmpty;
+
+  Future<void> _assignCategoryToFiltered() async {
+    if (_filteredInvoices.isEmpty) return;
+    
+    final categories = ref.read(categoryProvider);
+    
+    final selectedCategory = await showDialog<int?>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Asignar Categoría'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Se asignará a ${_filteredInvoices.length} facturas filtradas'),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int?>(
+              decoration: const InputDecoration(
+                labelText: 'Categoría',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Sin categoría')),
+                ...categories.map((cat) => DropdownMenuItem(
+                  value: cat.id,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Color(int.parse('0xFF${cat.color}')),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(cat.name),
+                    ],
+                  ),
+                )),
+              ],
+              onChanged: (value) => Navigator.pop(context, value),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+    
+    if (selectedCategory != null) {
+      for (final invoice in _filteredInvoices) {
+        await _updateInvoiceCategory(invoice, selectedCategory);
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Categoría asignada a ${_filteredInvoices.length} facturas')),
+        );
+      }
+    }
+  }
+
 
   final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _issuerFilterController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final categories = ref.watch(categoryProvider);
+    final categories = ref.watch(categoryProvider).where((c) => c.active).toList();
 
     return Scaffold(
       appBar: const CustomAppBar(),
@@ -245,33 +402,189 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Facturas Seleccionadas (${_selectedIds.length})',
-                        style: Theme.of(context).textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Toca en los títulos para ordenar',
-                        style: Theme.of(context).textTheme.bodySmall!,
-                      ),
-                    ],
+              SizedBox(
+                width: 1000,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Facturas Seleccionadas (${_selectedIds.length})',
+                          style: Theme.of(context).textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Toca en los títulos para ordenar',
+                          style: Theme.of(context).textTheme.bodySmall!,
+                        ),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => const CategoryManagerDialog(),
+                        );
+                      },
+                      icon: const Icon(Icons.category),
+                      label: const Text('Administrar Categorías'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Barra de filtros
+              SizedBox(
+                width: 1000,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text('Filtros:', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 16),
+                            // Filtro de fecha
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final picked = await showDateRangePicker(
+                                    context: context,
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                    initialDateRange: _dateFilter,
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      _dateFilter = picked;
+                                      _sortedInvoices = null;
+                                    });
+                                  }
+                                },
+                                child: InputDecorator(
+                                  decoration: const InputDecoration(
+                                    labelText: 'Fecha',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                  child: Text(
+                                    _dateFilter == null
+                                        ? ''
+                                        : '${_formatDate('${_dateFilter!.start.day}/${_dateFilter!.start.month}/${_dateFilter!.start.year}')} - ${_formatDate('${_dateFilter!.end.day}/${_dateFilter!.end.month}/${_dateFilter!.end.year}')}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Filtro de emisor
+                            Expanded(
+                              child: TextField(
+                                controller: _issuerFilterController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Emisor',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                                ),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _issuerFilter = value;
+                                    _sortedInvoices = null;
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Filtro de categoría
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final selected = await showDialog<Set<int?>>(
+                                    context: context,
+                                    builder: (context) => _CategoryFilterDialog(
+                                      categories: categories,
+                                      selectedCategories: _categoryFilter,
+                                    ),
+                                  );
+                                  if (selected != null) {
+                                    setState(() {
+                                      _categoryFilter = selected;
+                                      _sortedInvoices = null;
+                                    });
+                                  }
+                                },
+                                child: InputDecorator(
+                                  decoration: const InputDecoration(
+                                    labelText: 'Categorías',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                  child: Text(
+                                    _categoryFilter.isEmpty
+                                        ? ''
+                                        : '${_categoryFilter.length} seleccionadas',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            if (_hasActiveFilters)
+                              IconButton(
+                                icon: const Icon(Icons.clear),
+                                tooltip: 'Limpiar filtros',
+                                onPressed: _clearFilters,
+                              ),
+                            if (_hasActiveFilters && _filteredInvoices.isNotEmpty)
+                              ElevatedButton.icon(
+                                onPressed: _assignCategoryToFiltered,
+                                icon: const Icon(Icons.category, size: 18),
+                                label: Text('Asignar a ${_filteredInvoices.length}'),
+                              ),
+                          ],
+                        ),
+                        // Chips de filtros activos
+                        if (_hasActiveFilters) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              if (_dateFilter != null)
+                                Chip(
+                                  label: Text('Fecha: ${_formatDate('${_dateFilter!.start.day}/${_dateFilter!.start.month}/${_dateFilter!.start.year}')} - ${_formatDate('${_dateFilter!.end.day}/${_dateFilter!.end.month}/${_dateFilter!.end.year}')}'),
+                                  onDeleted: () => setState(() {
+                                    _dateFilter = null;
+                                    _sortedInvoices = null;
+                                  }),
+                                ),
+                              if (_issuerFilter.isNotEmpty)
+                                Chip(
+                                  label: Text('Emisor: $_issuerFilter'),
+                                  onDeleted: () => setState(() {
+                                    _issuerFilter = '';
+                                    _issuerFilterController.clear();
+                                    _sortedInvoices = null;
+                                  }),
+                                ),
+                              if (_categoryFilter.isNotEmpty)
+                                Chip(
+                                  label: Text('Categorías: ${_categoryFilter.length}'),
+                                  onDeleted: () => setState(() {
+                                    _categoryFilter.clear();
+                                    _sortedInvoices = null;
+                                  }),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => const CategoryManagerDialog(),
-                      );
-                    },
-                    icon: const Icon(Icons.category),
-                    label: const Text('Administrar Categorías'),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -350,7 +663,11 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                                       flex: 3,
                                       child: DropdownButtonHideUnderline(
                                         child: DropdownButton<int>(
-                                          value: invoice.categoriaId,
+                                          // Only set value if it exists in the categories list
+                                          value: invoice.categoryId != null && 
+                                                 categories.any((c) => c.id == invoice.categoryId)
+                                              ? invoice.categoryId
+                                              : null,
                                           hint: const Text('Sin categoría'),
                                           isExpanded: true,
                                           items: [
@@ -433,4 +750,101 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
     ),
   );
 }
+}
+
+class _CategoryFilterDialog extends StatefulWidget {
+  final List<Category> categories;
+  final Set<int?> selectedCategories;
+
+  const _CategoryFilterDialog({
+    required this.categories,
+    required this.selectedCategories,
+  });
+
+  @override
+  State<_CategoryFilterDialog> createState() => _CategoryFilterDialogState();
+}
+
+class _CategoryFilterDialogState extends State<_CategoryFilterDialog> {
+  late Set<int?> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set.from(widget.selectedCategories);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Filtrar por Categorías'),
+      content: SizedBox(
+        width: 300,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CheckboxListTile(
+                title: const Text('Sin categoría'),
+                value: _selected.contains(null),
+                onChanged: (value) {
+                  setState(() {
+                    if (value == true) {
+                      _selected.add(null);
+                    } else {
+                      _selected.remove(null);
+                    }
+                  });
+                },
+              ),
+              ...widget.categories.map((category) {
+                return CheckboxListTile(
+                  title: Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Color(int.parse('0xFF${category.color}')),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(category.name),
+                    ],
+                  ),
+                  value: _selected.contains(category.id),
+                  onChanged: (value) {
+                    setState(() {
+                      if (value == true) {
+                        _selected.add(category.id);
+                      } else {
+                        _selected.remove(category.id);
+                      }
+                    });
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        TextButton(
+          onPressed: () {
+            setState(() => _selected.clear());
+          },
+          child: const Text('Limpiar'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _selected),
+          child: const Text('Aplicar'),
+        ),
+      ],
+    );
+  }
 }

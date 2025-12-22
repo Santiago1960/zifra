@@ -39,7 +39,7 @@ class Invoice extends Equatable {
   // Otros
   final String numeroAutorizacion;
   final String fechaAutorizacion;
-  final int? categoriaId;
+  final int? categoryId;
   final bool estaSeleccionada;
 
   // Campos adicionales que estaban en la entidad anterior y podrian ser utiles
@@ -76,7 +76,7 @@ class Invoice extends Equatable {
     required this.detalle,
     required this.numeroAutorizacion,
     required this.fechaAutorizacion,
-    this.categoriaId,
+    this.categoryId,
     this.estaSeleccionada = false,
     this.infoAdicional = const {},
     this.pagos = const [],
@@ -95,7 +95,7 @@ class Invoice extends Equatable {
         claveAcceso,
         secuencial,
         estaSeleccionada,
-        categoriaId,
+        categoryId,
       ];
 
   Invoice copyWith({
@@ -128,7 +128,7 @@ class Invoice extends Equatable {
     List<InvoiceDetail>? detalle,
     String? numeroAutorizacion,
     String? fechaAutorizacion,
-    int? categoriaId,
+    int? categoryId,
     bool? estaSeleccionada,
     Map<String, String>? infoAdicional,
     List<Pago>? pagos,
@@ -165,7 +165,7 @@ class Invoice extends Equatable {
       detalle: detalle ?? this.detalle,
       numeroAutorizacion: numeroAutorizacion ?? this.numeroAutorizacion,
       fechaAutorizacion: fechaAutorizacion ?? this.fechaAutorizacion,
-      categoriaId: categoriaId ?? this.categoriaId,
+      categoryId: categoryId ?? this.categoryId,
       estaSeleccionada: estaSeleccionada ?? this.estaSeleccionada,
       infoAdicional: infoAdicional ?? this.infoAdicional,
       pagos: pagos ?? this.pagos,
@@ -206,7 +206,7 @@ class Invoice extends Equatable {
           [],
       numeroAutorizacion: json['numeroAutorizacion'] ?? '',
       fechaAutorizacion: json['fechaAutorizacion'] ?? '',
-      categoriaId: json['categoriaId'],
+      categoryId: json['categoryId'],
       estaSeleccionada: json['estaSeleccionada'] ?? false,
       infoAdicional: (json['infoAdicional'] as List<dynamic>?)
               ?.fold<Map<String, String>>({}, (map, item) {
@@ -270,7 +270,7 @@ class Invoice extends Equatable {
       'detalles': detalle.map((e) => e.toJson()).toList(),
       'numeroAutorizacion': numeroAutorizacion,
       'fechaAutorizacion': formatDate(fechaAutorizacion),
-      'categoriaId': categoriaId,
+      'categoryId': categoryId,
       'estaSeleccionada': estaSeleccionada,
       'certificada': false,
       'infoAdicional': infoAdicional.entries.map((e) => {

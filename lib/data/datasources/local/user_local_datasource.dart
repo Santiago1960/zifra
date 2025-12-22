@@ -13,7 +13,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
   UserLocalDataSourceImpl({required this.sharedPreferences});
 
   static const String _keyName = 'user_name';
-  static const String _keyRuc = 'user_ruc';
+  static const String _keyRuc  = 'user_ruc';
 
   @override
   Future<void> saveUser(User user) async {
