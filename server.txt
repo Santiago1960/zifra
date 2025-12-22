@@ -1,0 +1,18 @@
+(base) santiago@MacBook-Pro-de-Santiago-5 zifra_backend_server % dart bin/main.dart
+SERVERPOD version: 2.9.2, dart: 3.10.4 (stable) (Tue Dec 9 00:01:55 2025 -0800) on "macos_arm64", time: 2025-12-16 17:56:49.302350Z
+runMode: development
+serverId: default
+role: monolith
+loggingMode: normal
+applyMigrations: false
+applyRepairMigration: false
+SERVERPOD initialized, time: 2025-12-16 17:56:49.349773Z
+Insights listening on port 8081
+Server default listening on port 8080
+2025-12-16 17:56:49.776340Z WebServer  INFO: Webserver listening on port 8082
+TIME                        ID         TYPE           CONTEXT                  DETAILS
+--------------------------- ---------- -------------- ------------------------ ------------------------------
+2025-12-16 17:56:59.805899Z  651324189 LOG            INFO                     message=Hello! Remember to send a birthday card!
+2025-12-16 17:56:59.806617Z  651324189 FUTURE         birthdayReminder         queries=0, duration=15µs
+2025-12-16 17:57:22.287236Z  863049532 METHOD         projects.getOpenProjects user=null, queries=2, duration=29µs
+2025-12-16 17:57:28.694136Z  871521719 METHOD         invoices.getProjectInvoices user=null, queries=4, duration=30µs

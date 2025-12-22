@@ -1,26 +1,17 @@
-import 'package:flutter/material.dart';
-import 'package:zifra/domain/entities/invoice.dart';
+// import 'package:http/http.dart' as http;
+// import 'package:serverpod_flutter/serverpod_flutter.dart';
+// import 'package:zifra_client/zifra_client.dart';
 
-/// Mock Client to simulate Serverpod generated client
-class Client {
-  final InvoicesEndpoint invoices;
+// // Global client instance
+// late Client client;
 
-  Client({required this.invoices});
-}
+// Future<void> initializeClient() async {
+//   client = Client(
+//     'http://localhost:8080/',
+//     authenticationKeyManager: FlutterAuthenticationKeyManager(),
+//   );
+  
+//   // Optional: Check connectivity
+//   // await client.connectivityMonitor.waitForConnectivity();
+// }
 
-class InvoicesEndpoint {
-  Future<List<Invoice>> getOpenProjectInvoices(String ruc) async {
-    // Mock implementation
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-    debugPrint('Checking open projects for RUC: $ruc');
-    
-    // Return empty list to simulate no open projects found, or populate for testing
-    // For the purpose of "checking if user has open projects", 
-    // we might just check if the list is not empty.
-    return []; 
-  }
-}
-
-// Singleton instance or Provider can be used. 
-// For now, we'll just expose a global instance for simplicity in the DataSource, 
-// or better, inject it via Riverpod.

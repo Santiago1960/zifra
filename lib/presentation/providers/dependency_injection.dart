@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:zifra/core/client.dart';
+
 import 'package:zifra/data/datasources/local/user_local_datasource.dart';
 import 'package:zifra/data/datasources/remote/project_remote_datasource.dart';
 import 'package:zifra/data/datasources/remote/invoice_remote_datasource.dart';
@@ -13,9 +14,7 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('SharedPreferences not initialized');
 });
 
-final clientProvider = Provider<Client>((ref) {
-  return Client(invoices: InvoicesEndpoint());
-});
+
 
 // Data Sources
 final userLocalDataSourceProvider = Provider<UserLocalDataSource>((ref) {
@@ -24,8 +23,7 @@ final userLocalDataSourceProvider = Provider<UserLocalDataSource>((ref) {
 });
 
 final projectRemoteDataSourceProvider = Provider<ProjectRemoteDataSource>((ref) {
-  final client = ref.watch(clientProvider);
-  return ProjectRemoteDataSourceImpl(client: client);
+  return ProjectRemoteDataSourceImpl();
 });
 
 final invoiceRemoteDataSourceProvider = Provider<InvoiceRemoteDataSource>((ref) {

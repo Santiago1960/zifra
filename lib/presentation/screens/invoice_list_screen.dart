@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:zifra/domain/entities/category.dart';
 import 'package:zifra/domain/entities/invoice.dart';
+import 'package:zifra/presentation/providers/category_provider.dart';
 import 'package:zifra/presentation/providers/dependency_injection.dart';
+import 'package:zifra/presentation/widgets/category_manager_dialog.dart';
 import 'package:zifra/presentation/widgets/custom_app_bar.dart';
 
 class InvoiceListScreen extends ConsumerStatefulWidget {
@@ -108,8 +111,9 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             compare = a.importeTotal.compareTo(b.importeTotal);
             break;
           case 4: // Categoría
-            final catA = a.categoria.isEmpty ? 'Sin categoría' : a.categoria;
-            final catB = b.categoria.isEmpty ? 'Sin categoría' : b.categoria;
+            final categories = ref.read(categoryProvider);
+            final catA = categories.firstWhere((c) => c.id != null && c.id == a.categoriaId, orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000')).name;
+            final catB = categories.firstWhere((c) => c.id != null && c.id == b.categoriaId, orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000')).name;
             compare = catA.compareTo(catB);
             break;
         }
@@ -189,6 +193,35 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
     }
   }
 
+  void _updateInvoiceCategory(Invoice invoice, int? categoryId) {
+    // This is a temporary local update. In a real app, you'd update the backend/provider.
+    // Since we don't have a mutable list provider here, we'll just update the local sorted list if it exists,
+    // or we'd need a way to notify the parent.
+    // For now, let's assume we can update the widget.invoices (which is bad practice) or just setState locally.
+    
+    // Better approach: Create a local copy of invoices if not already done, or use a provider.
+    // Given the constraints, I'll update the local state.
+    
+    setState(() {
+      final newInvoice = invoice.copyWith(categoriaId: categoryId);
+      
+      if (_sortedInvoices != null) {
+        final index = _sortedInvoices!.indexWhere((i) => i.claveAcceso == invoice.claveAcceso);
+        if (index != -1) {
+          _sortedInvoices![index] = newInvoice;
+        }
+      } else {
+        // If we are using widget.invoices directly, we can't modify it.
+        // We must initialize _sortedInvoices to be able to edit.
+        _sortedInvoices = List.from(widget.invoices);
+        final index = _sortedInvoices!.indexWhere((i) => i.claveAcceso == invoice.claveAcceso);
+        if (index != -1) {
+          _sortedInvoices![index] = newInvoice;
+        }
+      }
+    });
+  }
+
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -199,6 +232,8 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final categories = ref.watch(categoryProvider);
+
     return Scaffold(
       appBar: const CustomAppBar(),
       body: Center(
@@ -210,13 +245,33 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'Facturas Seleccionadas (${_selectedIds.length})',
-                style: Theme.of(context).textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Toca en los títulos para ordenar',
-                style: Theme.of(context).textTheme.bodySmall!,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Facturas Seleccionadas (${_selectedIds.length})',
+                        style: Theme.of(context).textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Toca en los títulos para ordenar',
+                        style: Theme.of(context).textTheme.bodySmall!,
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => const CategoryManagerDialog(),
+                      );
+                    },
+                    icon: const Icon(Icons.category),
+                    label: const Text('Administrar Categorías'),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -291,7 +346,44 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                                     Expanded(flex: 2, child: Text(shortSequential)),
                                     Expanded(flex: 4, child: Text(invoice.razonSocial)),
                                     Expanded(flex: 2, child: Text('\$${invoice.importeTotal.toStringAsFixed(2)}')),
-                                    Expanded(flex: 3, child: Text(invoice.categoria.isEmpty ? 'Sin categoría' : invoice.categoria)),
+                                    Expanded(
+                                      flex: 3,
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<int>(
+                                          value: invoice.categoriaId,
+                                          hint: const Text('Sin categoría'),
+                                          isExpanded: true,
+                                          items: [
+                                            const DropdownMenuItem<int>(
+                                              value: null,
+                                              child: Text('Sin categoría'),
+                                            ),
+                                            ...categories.map((category) {
+                                              return DropdownMenuItem<int>(
+                                                value: category.id,
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 12,
+                                                      height: 12,
+                                                      decoration: BoxDecoration(
+                                                        color: Color(int.parse('0xFF${category.color}')),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(category.name),
+                                                  ],
+                                                ),
+                                              );
+                                            }),
+                                          ],
+                                          onChanged: (value) {
+                                            _updateInvoiceCategory(invoice, value);
+                                          },
+                                        ),
+                                      ),
+                                    ),
                                     SizedBox(
                                       width: 50,
                                       child: IconButton(

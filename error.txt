@@ -1,0 +1,14 @@
+Launching lib/main.dart on macOS in debug mode...
+✓ Built build/macos/Build/Products/Debug/zifra.app
+2025-12-16 12:52:31.762 zifra[7921:956450] Running with merged UI and platform thread. Experimental.
+Failed to foreground app; open returned 1
+Connecting to VM Service at ws://127.0.0.1:64231/WHSZxYQ2zUU=/ws
+Connected to the VM Service.
+flutter: Error getting categories: 404
+flutter: Response body: Endpoint categories not found
+flutter: 
+flutter: Error adding category: 404
+flutter: Response body: Endpoint categories not found
+flutter: 
+flutter: Exception adding category: Exception: Failed to add category
+flutter: Error adding category: Exception: Failed to add category

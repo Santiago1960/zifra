@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:zifra/core/client.dart';
+
+import 'package:zifra/core/config.dart';
 import 'package:zifra/domain/entities/invoice.dart';
 import 'package:zifra/domain/entities/project.dart';
 
@@ -13,18 +14,37 @@ abstract class ProjectRemoteDataSource {
 }
 
 class ProjectRemoteDataSourceImpl implements ProjectRemoteDataSource {
-  final Client client;
-
-  ProjectRemoteDataSourceImpl({required this.client});
+  ProjectRemoteDataSourceImpl();
 
   @override
   Future<List<Invoice>> getOpenProjectInvoices(String ruc) async {
-    return await client.invoices.getOpenProjectInvoices(ruc);
+    final url = Uri.parse('${Config.serverUrl}/invoices/getOpenProjectInvoices');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'rucBeneficiario': ruc,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decoded = jsonDecode(response.body);
+        return decoded.map((json) => Invoice.fromJson(json)).toList();
+      } else {
+        debugPrint('Error getting open project invoices: ${response.statusCode}');
+        debugPrint('Response body: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Exception getting open project invoices: $e');
+      return [];
+    }
   }
 
   @override
   Future<List<Invoice>> getProjectInvoices(int projectId) async {
-    final url = Uri.parse('http://127.0.0.1:8080/invoices/getProjectInvoices');
+    final url = Uri.parse('${Config.serverUrl}/invoices/getProjectInvoices');
     try {
       final response = await http.post(
         url,
@@ -50,7 +70,7 @@ class ProjectRemoteDataSourceImpl implements ProjectRemoteDataSource {
 
   @override
   Future<List<Project>> getProjects(String ruc) async {
-    final url = Uri.parse('http://127.0.0.1:8080/projects/getOpenProjects');
+    final url = Uri.parse('${Config.serverUrl}/projects/getOpenProjects');
     try {
       final response = await http.post(
         url,
@@ -76,7 +96,7 @@ class ProjectRemoteDataSourceImpl implements ProjectRemoteDataSource {
 
   @override
   Future<int> createProject(String clientName, String projectName, String rucBeneficiario) async {
-    final url = Uri.parse('http://127.0.0.1:8080/projects/createProject');
+    final url = Uri.parse('${Config.serverUrl}/projects/createProject');
     try {
       final response = await http.post(
         url,

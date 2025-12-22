@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+
+import 'package:zifra/core/config.dart';
 import 'package:zifra/domain/entities/invoice.dart';
 import 'package:zifra/core/exceptions/duplicate_invoices_exception.dart';
 
@@ -10,7 +12,7 @@ abstract class InvoiceRemoteDataSource {
 class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<bool> saveInvoices(List<Invoice> invoices, int projectId) async {
-    final url = Uri.parse('http://127.0.0.1:8080/invoices/saveInvoices');
+    final url = Uri.parse('${Config.serverUrl}/invoices/saveInvoices');
     try {
       final invoicesJson = invoices.map((invoice) {
         final json = invoice.toJson();
