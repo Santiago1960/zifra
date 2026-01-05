@@ -10,6 +10,7 @@ import 'package:zifra/presentation/providers/category_provider.dart';
 import 'package:zifra/presentation/providers/dependency_injection.dart';
 import 'package:zifra/presentation/widgets/category_manager_dialog.dart';
 import 'package:zifra/presentation/widgets/custom_app_bar.dart';
+import 'package:zifra/presentation/screens/invoice_charts_screen.dart';
 
 class InvoiceListScreen extends ConsumerStatefulWidget {
   final List<Invoice> invoices;
@@ -393,6 +394,74 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
 
     return Scaffold(
       appBar: const CustomAppBar(),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                   Text(
+                    'Zifra',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  //SizedBox(height: 4),
+                  Text(
+                    'Menú Principal',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text('Inicio'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                Navigator.pop(context); // Go back to home
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Gráficos de Categorías'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => InvoiceChartsScreen(
+                      invoices: _currentInvoices,
+                    ),
+                  ),
+                );
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.file_download),
+              title: const Text('Exportar a Excel (Próximamente)'),
+              enabled: false,
+              onTap: () {
+                // TODO: Implement Excel export
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
