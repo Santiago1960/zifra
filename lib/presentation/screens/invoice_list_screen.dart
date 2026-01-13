@@ -11,6 +11,10 @@ import 'package:zifra/presentation/providers/dependency_injection.dart';
 import 'package:zifra/presentation/widgets/category_manager_dialog.dart';
 import 'package:zifra/presentation/widgets/custom_app_bar.dart';
 import 'package:zifra/presentation/screens/invoice_charts_screen.dart';
+import 'package:zifra/presentation/providers/auth_provider.dart';
+import 'package:excel/excel.dart' as excel_pkg;
+import 'package:file_picker/file_picker.dart';
+import 'package:zifra/presentation/widgets/export_options_dialog.dart';
 
 class InvoiceListScreen extends ConsumerStatefulWidget {
   final List<Invoice> invoices;
@@ -381,6 +385,383 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
 
   final ScrollController _scrollController = ScrollController();
 
+  Future<void> _exportToExcel() async {
+    // 1. Show options dialog
+    final List<String>? selectedFields = await showDialog<List<String>>(
+      context: context,
+      builder: (context) => const ExportOptionsDialog(),
+    );
+
+    if (selectedFields == null) return; // User cancelled
+
+    // 2. Generate Excel
+    try {
+      // Show loading
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(child: CircularProgressIndicator()),
+        );
+      }
+
+      final excel = excel_pkg.Excel.createExcel();
+      final excel_pkg.Sheet sheet = excel['Facturas'];
+      excel.delete('Sheet1'); // Remove default sheet
+
+      // --- STYLES ---
+      final headerStyle = excel_pkg.CellStyle(
+        fontFamily: excel_pkg.getFontFamily(excel_pkg.FontFamily.Calibri),
+        bold: true,
+        fontSize: 14,
+      );
+      
+      final borderStyle = excel_pkg.CellStyle(
+        fontFamily: excel_pkg.getFontFamily(excel_pkg.FontFamily.Calibri),
+      );
+      borderStyle.leftBorder = excel_pkg.Border(borderStyle: excel_pkg.BorderStyle.Thin);
+      borderStyle.rightBorder = excel_pkg.Border(borderStyle: excel_pkg.BorderStyle.Thin);
+      borderStyle.topBorder = excel_pkg.Border(borderStyle: excel_pkg.BorderStyle.Thin);
+      borderStyle.bottomBorder = excel_pkg.Border(borderStyle: excel_pkg.BorderStyle.Thin);
+
+      final currencyStyle = borderStyle.copyWith();
+      currencyStyle.numberFormat = excel_pkg.CustomNumericNumFormat(
+        formatCode: r'$#,##0.00',
+      );
+
+      final headerBorderStyle = headerStyle.copyWith();
+      headerBorderStyle.leftBorder = excel_pkg.Border(borderStyle: excel_pkg.BorderStyle.Thin);
+      headerBorderStyle.rightBorder = excel_pkg.Border(borderStyle: excel_pkg.BorderStyle.Thin);
+      headerBorderStyle.topBorder = excel_pkg.Border(borderStyle: excel_pkg.BorderStyle.Thin);
+      headerBorderStyle.bottomBorder = excel_pkg.Border(borderStyle: excel_pkg.BorderStyle.Thin);
+
+      // --- USER INFO ---
+      final user = ref.read(authProvider).user;
+      final userName = user?.name ?? 'Usuario';
+      final userRuc = user?.ruc ?? 'N/A';
+
+      // Helper to write header
+      void writeHeader(excel_pkg.Sheet sheet) {
+        // Row 1: Title
+        var cell = sheet.cell(excel_pkg.CellIndex.indexByString('A1'));
+        cell.value = excel_pkg.TextCellValue('Reporte de Facturas');
+        cell.cellStyle = headerStyle;
+
+        // Row 2: Period
+        String periodText = 'Todo el periodo';
+        if (_dateFilter != null) {
+          periodText = '${_formatDate(_dateFilter!.start.toIso8601String())} - ${_formatDate(_dateFilter!.end.toIso8601String())}';
+        }
+        sheet.cell(excel_pkg.CellIndex.indexByString('A2')).value = excel_pkg.TextCellValue('Periodo: $periodText');
+
+        // Row 3: User
+        sheet.cell(excel_pkg.CellIndex.indexByString('A3')).value = excel_pkg.TextCellValue('Usuario: $userName');
+
+        // Row 4: RUC
+        sheet.cell(excel_pkg.CellIndex.indexByString('A4')).value = excel_pkg.TextCellValue('RUC: $userRuc');
+      }
+
+      // --- HEADER SECTION (Main Sheet) ---
+      writeHeader(sheet);
+
+      // Row 5: Empty
+
+      // --- DATA TABLE HEADERS (Row 6) ---
+      final List<String> headers = [
+        'Fecha Emisión',
+        'Factura',
+        'Emisor',
+        'Total',
+        'Categoría',
+      ];
+
+      // Add selected additional headers
+      final Map<String, String> fieldLabels = {
+        'ruc': 'RUC',
+        'claveAcceso': 'Clave de Acceso',
+        'dirMatriz': 'Dirección Matriz',
+        'dirEstablecimiento': 'Dirección Establecimiento',
+        'contribuyenteEspecial': 'Contribuyente Especial',
+        'obligadoContabilidad': 'Obligado Contabilidad',
+        'tipoIdentificacionComprador': 'Tipo Identificación Comprador',
+        'razonSocialComprador': 'Razón Social Comprador',
+        'identificacionComprador': 'Identificación Comprador',
+        'totalSinImpuestos': 'Total Sin Impuestos',
+        'totalDescuento': 'Total Descuento',
+        'valorIVA': 'Valor IVA',
+        'propina': 'Propina',
+        'numeroAutorizacion': 'Número Autorización',
+        'fechaAutorizacion': 'Fecha Autorización',
+      };
+
+      for (var field in selectedFields) {
+        headers.add(fieldLabels[field] ?? field);
+      }
+
+      // Write headers with style
+      for (var i = 0; i < headers.length; i++) {
+        final cell = sheet.cell(excel_pkg.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 5));
+        cell.value = excel_pkg.TextCellValue(headers[i]);
+        cell.cellStyle = headerBorderStyle;
+      }
+
+      // --- DATA ROWS ---
+      final categories = ref.read(categoryProvider);
+      int rowIndex = 6;
+
+      for (var invoice in _currentInvoices) {
+        final categoryName = invoice.categoryId != null
+            ? categories
+                .firstWhere(
+                  (c) => c.id == invoice.categoryId,
+                  orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000'),
+                )
+                .name
+            : 'Sin categoría';
+
+        final List<excel_pkg.CellValue> rowValues = [
+          excel_pkg.TextCellValue(_formatDate(invoice.fechaEmision)),
+          excel_pkg.TextCellValue(invoice.numeroFacturaCompleto),
+          excel_pkg.TextCellValue(invoice.razonSocial),
+          excel_pkg.DoubleCellValue(invoice.importeTotal),
+          excel_pkg.TextCellValue(categoryName),
+        ];
+
+        // Add selected additional fields
+        for (var field in selectedFields) {
+          switch (field) {
+            case 'ruc':
+              rowValues.add(excel_pkg.TextCellValue(invoice.ruc));
+              break;
+            case 'claveAcceso':
+              rowValues.add(excel_pkg.TextCellValue(invoice.claveAcceso));
+              break;
+            case 'dirMatriz':
+              rowValues.add(excel_pkg.TextCellValue(invoice.dirMatriz));
+              break;
+            case 'dirEstablecimiento':
+              rowValues.add(excel_pkg.TextCellValue(invoice.dirEstablecimiento));
+              break;
+            case 'contribuyenteEspecial':
+              rowValues.add(excel_pkg.TextCellValue(invoice.contribuyenteEspecial));
+              break;
+            case 'obligadoContabilidad':
+              rowValues.add(excel_pkg.TextCellValue(invoice.obligadoContabilidad));
+              break;
+            case 'tipoIdentificacionComprador':
+              rowValues.add(excel_pkg.TextCellValue(invoice.tipoIdentificacionComprador));
+              break;
+            case 'razonSocialComprador':
+              rowValues.add(excel_pkg.TextCellValue(invoice.razonSocialComprador));
+              break;
+            case 'identificacionComprador':
+              rowValues.add(excel_pkg.TextCellValue(invoice.identificacionComprador));
+              break;
+            case 'totalSinImpuestos':
+              rowValues.add(excel_pkg.DoubleCellValue(invoice.totalSinImpuestos));
+              break;
+            case 'totalDescuento':
+              rowValues.add(excel_pkg.DoubleCellValue(invoice.totalDescuento));
+              break;
+            case 'valorIVA':
+              rowValues.add(excel_pkg.DoubleCellValue(invoice.valorIVA));
+              break;
+            case 'propina':
+              rowValues.add(excel_pkg.DoubleCellValue(invoice.propina));
+              break;
+            case 'numeroAutorizacion':
+              rowValues.add(excel_pkg.TextCellValue(invoice.numeroAutorizacion));
+              break;
+            case 'fechaAutorizacion':
+              rowValues.add(excel_pkg.TextCellValue(_formatDate(invoice.fechaAutorizacion)));
+              break;
+            default:
+              rowValues.add(excel_pkg.TextCellValue(''));
+          }
+        }
+
+        // Write row with style
+        for (var i = 0; i < rowValues.length; i++) {
+          final cell = sheet.cell(excel_pkg.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex));
+          cell.value = rowValues[i];
+          
+          // Apply currency style to DoubleCellValue
+          if (rowValues[i] is excel_pkg.DoubleCellValue) {
+            cell.cellStyle = currencyStyle;
+          } else {
+            cell.cellStyle = borderStyle;
+          }
+        }
+        rowIndex++;
+      }
+
+      // --- TOTALS SECTION ---
+      rowIndex++; // Empty row
+      
+      // Total Count
+      var cellTotalLabel = sheet.cell(excel_pkg.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex));
+      cellTotalLabel.value = excel_pkg.TextCellValue('Total Facturas:');
+      cellTotalLabel.cellStyle = headerStyle;
+      
+      var cellTotalValue = sheet.cell(excel_pkg.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex));
+      cellTotalValue.value = excel_pkg.IntCellValue(_currentInvoices.length);
+      cellTotalValue.cellStyle = headerStyle;
+
+      rowIndex++;
+      
+      // Total Sum
+      var cellSumLabel = sheet.cell(excel_pkg.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex));
+      cellSumLabel.value = excel_pkg.TextCellValue('Suma Total:');
+      cellSumLabel.cellStyle = headerStyle;
+
+      double totalSum = _currentInvoices.fold(0, (sum, item) => sum + item.importeTotal);
+      var cellSumValue = sheet.cell(excel_pkg.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex));
+      cellSumValue.value = excel_pkg.DoubleCellValue(totalSum);
+      
+      // Apply currency style to Total Sum (merging with header style for bold)
+      final totalSumStyle = headerStyle.copyWith();
+      totalSumStyle.numberFormat = excel_pkg.CustomNumericNumFormat(
+        formatCode: r'$#,##0.00',
+      );
+      cellSumValue.cellStyle = totalSumStyle;
+
+
+      // --- SUMMARY SHEET (Resumen) ---
+      final excel_pkg.Sheet summarySheet = excel['Resumen'];
+      
+      // Write Header to Summary Sheet
+      writeHeader(summarySheet);
+
+      // Calculate Category Data
+      final Map<String, double> categoryTotals = {};
+      for (var invoice in _currentInvoices) {
+        final categoryName = invoice.categoryId != null
+            ? categories
+                .firstWhere(
+                  (c) => c.id == invoice.categoryId,
+                  orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000'),
+                )
+                .name
+            : 'Sin categoría';
+        categoryTotals[categoryName] = (categoryTotals[categoryName] ?? 0) + invoice.importeTotal;
+      }
+
+      // Headers (Row 6)
+      final summaryHeaders = ['Categoría', 'Valor', 'Porcentaje'];
+      for (var i = 0; i < summaryHeaders.length; i++) {
+        final cell = summarySheet.cell(excel_pkg.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 5));
+        cell.value = excel_pkg.TextCellValue(summaryHeaders[i]);
+        cell.cellStyle = headerBorderStyle;
+      }
+
+      // Data
+      int summaryRowIndex = 6;
+      categoryTotals.forEach((category, amount) {
+        double percentage = totalSum > 0 ? (amount / totalSum) * 100 : 0;
+        
+        final List<excel_pkg.CellValue> rowValues = [
+          excel_pkg.TextCellValue(category),
+          excel_pkg.DoubleCellValue(amount),
+          excel_pkg.TextCellValue('${percentage.toStringAsFixed(2)}%'),
+        ];
+
+        for (var i = 0; i < rowValues.length; i++) {
+          final cell = summarySheet.cell(excel_pkg.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: summaryRowIndex));
+          cell.value = rowValues[i];
+          
+          if (i == 1) { // Valor column
+            cell.cellStyle = currencyStyle;
+          } else {
+            cell.cellStyle = borderStyle;
+          }
+        }
+        summaryRowIndex++;
+      });
+
+
+      // 3. Save file
+      final fileBytes = excel.save();
+      
+      // Hide loading
+      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+
+      if (fileBytes == null) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Error'),
+              content: const Text('No se pudieron generar los datos del Excel.'),
+              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+            ),
+          );
+        }
+        return;
+      }
+
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Guardar Excel',
+        fileName: 'facturas_zifra.xlsx',
+        type: FileType.custom,
+        allowedExtensions: ['xlsx'],
+      );
+
+      if (outputFile != null) {
+        // Ensure extension
+        if (!outputFile.endsWith('.xlsx')) {
+          outputFile = '$outputFile.xlsx';
+        }
+
+        final file = File(outputFile);
+        await file.writeAsBytes(fileBytes);
+        
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Éxito'),
+              content: Text('Archivo guardado en:\n$outputFile'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    OpenFilex.open(file.path);
+                  },
+                  child: const Text('Abrir'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cerrar'),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        // User cancelled
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Exportación cancelada')),
+          );
+        }
+      }
+    } catch (e) {
+      // Hide loading if error
+      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Error al exportar'),
+            content: Text('Ocurrió un error inesperado:\n$e'),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -452,11 +833,10 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.file_download),
-              title: const Text('Exportar a Excel (Próximamente)'),
-              enabled: false,
+              title: const Text('Exportar a Excel'),
               onTap: () {
-                // TODO: Implement Excel export
-                Navigator.pop(context);
+                Navigator.pop(context); // Close drawer
+                _exportToExcel();
               },
             ),
           ],

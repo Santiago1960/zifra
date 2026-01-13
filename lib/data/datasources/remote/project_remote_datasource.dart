@@ -58,7 +58,7 @@ class ProjectRemoteDataSourceImpl implements ProjectRemoteDataSource {
         final List<dynamic> decoded = jsonDecode(response.body);
         // Debug: print first invoice to see if categoriaId is present
         if (decoded.isNotEmpty) {
-          debugPrint('DEBUG: First invoice JSON: ${decoded.first}');
+          //debugPrint('DEBUG: First invoice JSON: ${decoded.first}');
         }
         return decoded.map((json) => Invoice.fromJson(json)).toList();
       } else {
