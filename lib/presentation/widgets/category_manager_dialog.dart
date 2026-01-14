@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zifra/domain/entities/category.dart';
 import 'package:zifra/presentation/providers/category_provider.dart';
+import 'package:zifra/presentation/providers/auth_provider.dart';
 
 class CategoryManagerDialog extends ConsumerStatefulWidget {
   const CategoryManagerDialog({super.key});
@@ -41,10 +42,16 @@ class _CategoryManagerDialogState extends ConsumerState<CategoryManagerDialog> {
             ),
           );
     } else {
+      final user = ref.read(authProvider).user;
+      if (user == null) {
+        // Should not happen if we are here, but safety check
+        return;
+      }
+      
       result = await ref.read(categoryProvider.notifier).addCategory(
             Category(
               name: _nameController.text,
-              userId: '', // TODO: Get actual user ID
+              userId: user.ruc,
               color: _selectedColor,
             ),
           );
@@ -107,13 +114,16 @@ class _CategoryManagerDialogState extends ConsumerState<CategoryManagerDialog> {
                 );
               } else {
                 // Crear directamente sin validación
-                await notifier.dataSource.addCategory(
-                  Category(
-                    name: _nameController.text,
-                    userId: '',
-                    color: _selectedColor,
-                  ),
-                );
+                final user = ref.read(authProvider).user;
+                if (user != null) {
+                  await notifier.dataSource.addCategory(
+                    Category(
+                      name: _nameController.text,
+                      userId: user.ruc,
+                      color: _selectedColor,
+                    ),
+                  );
+                }
               }
               await notifier.fetchCategories();
               _resetForm();
