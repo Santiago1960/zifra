@@ -190,8 +190,8 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             break;
           case 4: // Categoría
             final categories = ref.read(categoryProvider);
-            final catA = categories.firstWhere((c) => c.id != null && c.id == a.categoryId, orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000')).name;
-            final catB = categories.firstWhere((c) => c.id != null && c.id == b.categoryId, orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000')).name;
+            final catA = categories.firstWhere((c) => c.id != null && c.id == a.categoryId, orElse: () => const Category(name: 'Sin categoría', userId: '', color: '000000')).name;
+            final catB = categories.firstWhere((c) => c.id != null && c.id == b.categoryId, orElse: () => const Category(name: 'Sin categoría', userId: '', color: '000000')).name;
             compare = catA.compareTo(catB);
             break;
         }
@@ -341,6 +341,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                 ...categories.map((cat) => DropdownMenuItem(
                   value: cat.id,
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
                         width: 12,
@@ -351,7 +352,12 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(cat.name),
+                      Flexible(
+                        child: Text(
+                          cat.name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 )),
@@ -370,14 +376,40 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
     );
     
     if (selectedCategory != null) {
-      for (final invoice in _filteredInvoices) {
-        await _updateInvoiceCategory(invoice, selectedCategory);
-      }
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Categoría asignada a ${_filteredInvoices.length} facturas')),
-        );
+      // Capture IDs BEFORE setState to ensure we have the correct list even if filter changes
+      final invoicesToUpdate = _filteredInvoices;
+      final accessKeys = invoicesToUpdate.map((i) => i.claveAcceso).toList();
+
+      // Optimistic UI update
+      setState(() {
+        _localInvoices ??= List.from(widget.invoices);
+        
+        for (final invoice in invoicesToUpdate) {
+          final index = _localInvoices!.indexWhere((i) => i.claveAcceso == invoice.claveAcceso);
+          if (index != -1) {
+            _localInvoices![index] = invoice.copyWith(categoryId: selectedCategory);
+          }
+        }
+        _sortedInvoices = null;
+      });
+
+      // Batch update in backend
+      try {
+        final datasource = ref.read(invoiceRemoteDataSourceProvider);
+        
+        await datasource.updateInvoicesCategory(accessKeys, selectedCategory);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Categoría asignada a ${accessKeys.length} facturas')),
+          );
+        }
+      } catch (e) {
+         if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error al actualizar: $e')),
+            );
+         }
       }
     }
   }
@@ -514,7 +546,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             ? categories
                 .firstWhere(
                   (c) => c.id == invoice.categoryId,
-                  orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000'),
+                  orElse: () => const Category(name: 'Sin categoría', userId: '', color: '000000'),
                 )
                 .name
             : 'Sin categoría';
@@ -639,7 +671,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             ? categories
                 .firstWhere(
                   (c) => c.id == invoice.categoryId,
-                  orElse: () => const Category(name: 'Sin categoría', userId: 0, color: '000000'),
+                  orElse: () => const Category(name: 'Sin categoría', userId: '', color: '000000'),
                 )
                 .name
             : 'Sin categoría';
@@ -846,7 +878,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: SizedBox(
-          width: double.infinity,
+          width: 1000,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1117,12 +1149,12 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                                                  categories.any((c) => c.id == invoice.categoryId)
                                               ? invoice.categoryId
                                               : null,
-                                          hint: const Text('Sin categoría'),
+                                          hint: const Text('Sin categoría', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.normal)),
                                           isExpanded: true,
                                           items: [
                                             const DropdownMenuItem<int>(
                                               value: null,
-                                              child: Text('Sin categoría'),
+                                              child: Text('Sin categoría', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.normal)),
                                             ),
                                             ...categories.map((category) {
                                               return DropdownMenuItem<int>(
@@ -1138,7 +1170,13 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                                                       ),
                                                     ),
                                                     const SizedBox(width: 8),
-                                                    Text(category.name),
+                                                    Expanded(
+                                                      child: Text(
+                                                        category.name,
+                                                        style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.normal),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               );
@@ -1259,7 +1297,12 @@ class _CategoryFilterDialogState extends State<_CategoryFilterDialog> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(category.name),
+                      Expanded(
+                        child: Text(
+                          category.name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   value: _selected.contains(category.id),

@@ -261,7 +261,7 @@ class InvoiceChartsScreen extends ConsumerWidget {
       if (categoryId != null) {
         final category = categories.firstWhere(
           (c) => c.id == categoryId,
-          orElse: () => const Category(name: 'Desconocida', userId: 0, color: '808080'),
+          orElse: () => const Category(name: 'Desconocida', userId: '', color: '808080'),
         );
         name = category.name;
         try {
@@ -323,7 +323,7 @@ class _SummaryCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: color, size: 32),

@@ -6,7 +6,7 @@ import 'package:zifra/core/config.dart';
 import 'package:zifra/domain/entities/category.dart';
 
 abstract class CategoryRemoteDataSource {
-  Future<List<Category>> getCategories(int userId);
+  Future<List<Category>> getCategories(String userId);
   Future<void> addCategory(Category category);
   Future<void> updateCategory(Category category);
   Future<void> deleteCategory(int id);
@@ -16,8 +16,9 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
   CategoryRemoteDataSourceImpl();
 
   @override
-  Future<List<Category>> getCategories(int userId) async {
+  Future<List<Category>> getCategories(String userId) async {
     final url = Uri.parse('${Config.serverUrl}/category/getCategories');
+    debugPrint('CategoryRemoteDataSource: Requesting $url with userId: $userId');
     try {
       final response = await http.post(
         url,
@@ -25,7 +26,9 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
         body: jsonEncode({'userId': userId}),
       );
 
+      debugPrint('CategoryRemoteDataSource: Response status: ${response.statusCode}');
       if (response.statusCode == 200) {
+        debugPrint('CategoryRemoteDataSource: Response body: ${response.body}');
         final List<dynamic> decoded = jsonDecode(response.body);
         return decoded.map((json) => Category.fromJson(json)).toList();
       } else {

@@ -44,7 +44,7 @@ class _CategoryManagerDialogState extends ConsumerState<CategoryManagerDialog> {
       result = await ref.read(categoryProvider.notifier).addCategory(
             Category(
               name: _nameController.text,
-              userId: 1, // TODO: Get actual user ID
+              userId: '', // TODO: Get actual user ID
               color: _selectedColor,
             ),
           );
@@ -110,7 +110,7 @@ class _CategoryManagerDialogState extends ConsumerState<CategoryManagerDialog> {
                 await notifier.dataSource.addCategory(
                   Category(
                     name: _nameController.text,
-                    userId: 1,
+                    userId: '',
                     color: _selectedColor,
                   ),
                 );

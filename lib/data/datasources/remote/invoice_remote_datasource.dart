@@ -9,6 +9,7 @@ import 'package:zifra/core/exceptions/duplicate_invoices_exception.dart';
 abstract class InvoiceRemoteDataSource {
   Future<bool> saveInvoices(List<Invoice> invoices, int projectId);
   Future<bool> updateInvoiceCategory(String claveAcceso, int? categoryId);
+  Future<bool> updateInvoicesCategory(List<String> clavesAcceso, int? categoryId);
 }
 
 
@@ -84,6 +85,32 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         return decoded != null;
       } else {
         throw Exception('Failed to update invoice category: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<bool> updateInvoicesCategory(List<String> clavesAcceso, int? categoryId) async {
+    final url = Uri.parse('${Config.serverUrl}/invoices/updateInvoicesCategory');
+    try {
+      final body = jsonEncode({
+        'clavesAcceso': clavesAcceso,
+        'categoryId': categoryId,
+      });
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return decoded == true;
+      } else {
+        throw Exception('Failed to update invoices category: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       rethrow;

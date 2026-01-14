@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 class Category extends Equatable {
   final int? id;
   final String name;
-  final int userId;
+  final String userId;
   final String color; // Hex string format, e.g., "FF0000"
   final bool active;
 
@@ -18,7 +18,7 @@ class Category extends Equatable {
   Category copyWith({
     int? id,
     String? name,
-    int? userId,
+    String? userId,
     String? color,
     bool? active,
   }) {
@@ -35,7 +35,7 @@ class Category extends Equatable {
     return Category(
       id: json['id'],
       name: json['name'] ?? '',
-      userId: json['userId'] ?? 0,
+      userId: json['userId']?.toString() ?? '',
       color: json['color'] ?? '000000',
       active: json['active'] ?? true,
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:zifra/data/datasources/remote/category_remote_datasource.dart';
 import 'package:zifra/domain/entities/category.dart';
+import 'package:zifra/presentation/providers/auth_provider.dart';
 
 class CategoryNotifier extends Notifier<List<Category>> {
   late final CategoryRemoteDataSource dataSource;
@@ -16,8 +17,17 @@ class CategoryNotifier extends Notifier<List<Category>> {
 
   Future<void> fetchCategories() async {
     try {
-      // TODO: Get actual user ID from auth or user provider
-      final categories = await dataSource.getCategories(1);
+      final user = ref.read(authProvider).user;
+      debugPrint('CategoryNotifier: Fetching categories for user: ${user?.ruc}');
+      
+      if (user == null || user.ruc.isEmpty) {
+        debugPrint('CategoryNotifier: User is null or RUC is empty');
+        state = [];
+        return;
+      }
+      
+      final categories = await dataSource.getCategories(user.ruc);
+      debugPrint('CategoryNotifier: Fetched ${categories.length} categories');
       state = categories;
     } catch (e) {
       debugPrint('Error fetching categories: $e');
@@ -45,10 +55,18 @@ class CategoryNotifier extends Notifier<List<Category>> {
   /// Retorna null si no hay error, o un objeto con información del error
   /// {type: 'exact'|'similar', existingName: 'nombre'}
   Future<Map<String, String>?> addCategory(Category category) async {
+    final user = ref.read(authProvider).user;
+    if (user == null || user.ruc.isEmpty) {
+      return {'type': 'error', 'message': 'Usuario no autenticado'};
+    }
+
+    // Asegurar que la categoría tenga el userId correcto
+    final categoryWithUser = category.copyWith(userId: user.ruc);
+
     // Buscar duplicados exactos
     final exactDuplicate = state.firstWhere(
-      (c) => c.name.toLowerCase().trim() == category.name.toLowerCase().trim() && c.userId == category.userId,
-      orElse: () => Category(name: '', userId: 0, color: ''),
+      (c) => c.name.toLowerCase().trim() == categoryWithUser.name.toLowerCase().trim() && c.userId == categoryWithUser.userId,
+      orElse: () => const Category(name: '', userId: '', color: ''),
     );
     
     if (exactDuplicate.name.isNotEmpty) {
@@ -57,8 +75,8 @@ class CategoryNotifier extends Notifier<List<Category>> {
     
     // Buscar categorías similares
     final similarCategory = state.firstWhere(
-      (c) => _areSimilar(c.name, category.name) && c.userId == category.userId,
-      orElse: () => Category(name: '', userId: 0, color: ''),
+      (c) => _areSimilar(c.name, categoryWithUser.name) && c.userId == categoryWithUser.userId,
+      orElse: () => const Category(name: '', userId: '', color: ''),
     );
     
     if (similarCategory.name.isNotEmpty) {
@@ -66,7 +84,7 @@ class CategoryNotifier extends Notifier<List<Category>> {
     }
     
     try {
-      await dataSource.addCategory(category);
+      await dataSource.addCategory(categoryWithUser);
       await fetchCategories();
       return null; // Éxito, sin error
     } catch (e) {
@@ -76,13 +94,21 @@ class CategoryNotifier extends Notifier<List<Category>> {
   }
 
   Future<Map<String, String>?> updateCategory(Category category) async {
+    final user = ref.read(authProvider).user;
+    if (user == null || user.ruc.isEmpty) {
+      return {'type': 'error', 'message': 'Usuario no autenticado'};
+    }
+
+    // Asegurar que la categoría tenga el userId correcto
+    final categoryWithUser = category.copyWith(userId: user.ruc);
+
     // Buscar duplicados exactos (excluyendo la categoría actual)
     final exactDuplicate = state.firstWhere(
       (c) => 
-        c.name.toLowerCase().trim() == category.name.toLowerCase().trim() && 
-        c.userId == category.userId &&
-        c.id != category.id,
-      orElse: () => Category(name: '', userId: 0, color: ''),
+        c.name.toLowerCase().trim() == categoryWithUser.name.toLowerCase().trim() && 
+        c.userId == categoryWithUser.userId &&
+        c.id != categoryWithUser.id,
+      orElse: () => const Category(name: '', userId: '', color: ''),
     );
     
     if (exactDuplicate.name.isNotEmpty) {
@@ -92,10 +118,10 @@ class CategoryNotifier extends Notifier<List<Category>> {
     // Buscar categorías similares (excluyendo la categoría actual)
     final similarCategory = state.firstWhere(
       (c) => 
-        _areSimilar(c.name, category.name) && 
-        c.userId == category.userId &&
-        c.id != category.id,
-      orElse: () => Category(name: '', userId: 0, color: ''),
+        _areSimilar(c.name, categoryWithUser.name) && 
+        c.userId == categoryWithUser.userId &&
+        c.id != categoryWithUser.id,
+      orElse: () => const Category(name: '', userId: '', color: ''),
     );
     
     if (similarCategory.name.isNotEmpty) {
@@ -103,7 +129,7 @@ class CategoryNotifier extends Notifier<List<Category>> {
     }
     
     try {
-      await dataSource.updateCategory(category);
+      await dataSource.updateCategory(categoryWithUser);
       await fetchCategories();
       return null; // Éxito, sin error
     } catch (e) {
