@@ -63,7 +63,7 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
 
   @override
   Future<bool> updateInvoiceCategory(String claveAcceso, int? categoryId) async {
-    debugPrint('DEBUG: Updating invoice $claveAcceso with categoryId: $categoryId');
+    // debugPrint('DEBUG: Updating invoice $claveAcceso with categoryId: $categoryId');
     final url = Uri.parse('${Config.serverUrl}/invoices/updateInvoiceCategory');
     try {
       final body = jsonEncode({
@@ -77,8 +77,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         body: body,
       );
 
-      debugPrint('DEBUG: Update response status: ${response.statusCode}');
-      debugPrint('DEBUG: Update response body: ${response.body}');
+      // debugPrint('DEBUG: Update response status: ${response.statusCode}');
+      // debugPrint('DEBUG: Update response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
