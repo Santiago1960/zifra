@@ -1,5 +1,0 @@
-flutter: CategoryNotifier: Fetching categories for user: 1706370051
-flutter: CategoryRemoteDataSource: Requesting http://127.0.0.1:8080/category/getCategories with userId: 1706370051
-flutter: CategoryRemoteDataSource: Response status: 200
-flutter: CategoryRemoteDataSource: Response body: [{"id":1,"userId":"1706370051","name":"Alimentos","color":"FF5733","isDeleted":false}]
-flutter: CategoryNotifier: Fetched 1 categories
