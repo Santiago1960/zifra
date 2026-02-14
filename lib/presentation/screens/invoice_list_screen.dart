@@ -8,6 +8,7 @@ import 'package:zifra/domain/entities/category.dart';
 import 'package:zifra/domain/entities/invoice.dart';
 import 'package:zifra/presentation/providers/category_provider.dart';
 import 'package:zifra/presentation/providers/dependency_injection.dart';
+import 'package:zifra/presentation/widgets/XmlAddDialog.dart';
 import 'package:zifra/presentation/widgets/category_manager_dialog.dart';
 import 'package:zifra/presentation/widgets/custom_app_bar.dart';
 import 'package:zifra/presentation/screens/invoice_charts_screen.dart';
@@ -900,6 +901,36 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                           style: Theme.of(context).textTheme.bodySmall!,
                         ),
                       ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final nuevas = await showDialog<List<Invoice>>(
+                          context: context,
+                          builder: (context) => XmlAddDialog(
+                            currentInvoices: widget.invoices, 
+                            projectId: widget.projectId ?? 0,
+                          ),
+                        );
+                        if (nuevas != null && nuevas.isNotEmpty) {
+                          setState(() {
+                            // Añadimos las nuevas facturas a la lista principal
+                            widget.invoices.addAll(nuevas);
+                            
+                            // Las marcamos como seleccionadas automáticamente para que sumen al total
+                            _selectedIds.addAll(nuevas.map((i) => i.claveAcceso));
+                            
+                            // Forzamos que se recalculen los filtros y el ordenamiento
+                            _sortedInvoices = null; 
+                          });
+      
+                          messenger.showSnackBar(
+                            SnackBar(content: Text('${nuevas.length} facturas añadidas correctamente')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.file_upload),
+                      label: const Text('Añadir XMLs'),
                     ),
                     ElevatedButton.icon(
                       onPressed: () {
