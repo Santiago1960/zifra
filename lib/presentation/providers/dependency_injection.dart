@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zifra/data/datasources/local/user_local_datasource.dart';
 import 'package:zifra/data/datasources/remote/project_remote_datasource.dart';
 import 'package:zifra/data/datasources/remote/invoice_remote_datasource.dart';
+import 'package:zifra/data/datasources/remote/sri_remote_datasource.dart';
 import 'package:zifra/data/repositories/user_repository_impl.dart';
 import 'package:zifra/domain/repositories/user_repository.dart';
 import 'package:zifra/domain/services/pdf_generator_service.dart';
@@ -28,6 +29,10 @@ final projectRemoteDataSourceProvider = Provider<ProjectRemoteDataSource>((ref) 
 
 final invoiceRemoteDataSourceProvider = Provider<InvoiceRemoteDataSource>((ref) {
   return InvoiceRemoteDataSourceImpl();
+});
+
+final sriRemoteDataSourceProvider = Provider<SriRemoteDataSource>((ref) {
+  return SriRemoteDataSourceImpl();
 });
 
 // Repository

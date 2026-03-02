@@ -5,6 +5,7 @@ import 'package:zifra/presentation/providers/dependency_injection.dart';
 import 'package:zifra/presentation/screens/invoice_list_screen.dart';
 import 'package:zifra/presentation/widgets/custom_app_bar.dart';
 import 'package:zifra/presentation/widgets/invoice_drop_zone.dart';
+import 'package:zifra/presentation/widgets/sri_password_dialog.dart';
 import 'package:zifra/presentation/widgets/user_registration_dialog.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -161,6 +162,142 @@ class HomeScreen extends ConsumerWidget {
             }
           },
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color.fromARGB(255, 27, 120, 197),
+        foregroundColor: Colors.white,
+        tooltip: 'Descargar facturas del SRI',
+        shape: const CircleBorder(),
+        onPressed: authState.status != AuthStatus.authenticated ? null : () async {
+          final ruc = authState.user?.ruc;
+          if (ruc == null) return;
+
+          // 1. Verificar que el usuario tiene un proyecto activo
+          if (!authState.hasOpenProjects || authState.projects.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Crea un proyecto primero para asociar las facturas.')),
+            );
+            return;
+          }
+
+          // 2. Pedir contraseña y períodos
+          final result = await SriPasswordDialog.show(context);
+          if (result == null || !context.mounted) return;
+
+          // 3. Seleccionar proyecto destino (si hay más de uno, tomar el más reciente)
+          final targetProject = authState.projects.first;
+          if (targetProject.id == null) return;
+
+          // 4. Mostrar loading mientras el bot trabaja
+          if (!context.mounted) return;
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => const AlertDialog(
+              content: SizedBox(
+                height: 120,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Descargando facturas del SRI...', textAlign: TextAlign.center),
+                    SizedBox(height: 4),
+                    Text('Esto puede tardar varios minutos.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ),
+          );
+
+          try {
+            final downloadResult = await ref.read(sriRemoteDataSourceProvider).downloadAndSave(
+              ruc: ruc,
+              password: result.password,
+              projectId: targetProject.id!,
+              periods: result.periods,
+            );
+
+            if (!context.mounted) return;
+            Navigator.pop(context); // cerrar loading
+
+            // 5. Mostrar resumen por período
+            final months = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text('Descarga Completada'),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 400,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ...downloadResult.periods.map((p) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text('${months[p.month]} ${p.year}:', style: const TextStyle(fontWeight: FontWeight.bold))),
+                            Text('✓ ${p.descargadas}'),
+                            if (p.duplicadas > 0) Text('  dup: ${p.duplicadas}', style: const TextStyle(color: Colors.orange)),
+                            if (p.errores > 0) Text('  err: ${p.errores}', style: const TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      )),
+                      const Divider(),
+                      Row(
+                        children: [
+                          const Icon(Icons.verified, color: Color(0xFF1B78C5), size: 16),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text('${downloadResult.totalDescargadas} facturas certificadas guardadas en "${targetProject.nombre}"')),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cerrar'),
+                  ),
+                  if (downloadResult.totalDescargadas > 0)
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.receipt_long),
+                      label: const Text('Ver facturas'),
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        if (!context.mounted) return;
+                        showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
+                        try {
+                          final invoices = await ref.read(projectRemoteDataSourceProvider).getProjectInvoices(targetProject.id!);
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => InvoiceListScreen(invoices: invoices, projectId: targetProject.id),
+                            ));
+                          }
+                        } catch (e) {
+                          if (context.mounted) { Navigator.pop(context); }
+                        }
+                      },
+                    ),
+                ],
+              ),
+            );
+          } catch (e) {
+            if (!context.mounted) return;
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          }
+        },
+        child: const Icon(Icons.download),
       ),
     );
   }
